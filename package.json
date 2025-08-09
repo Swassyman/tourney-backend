@@ -4,18 +4,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node --env-file=.env --watch app.js",
+    "start": "node --env-file=.env app.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.14.0",
   "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "@oslojs/jwt": "^0.3.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "mongodb": "^6.18.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "zod": "^4.0.16"
   },
   "type": "module"
 }
