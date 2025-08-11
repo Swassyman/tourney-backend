@@ -8,11 +8,6 @@ if (typeof uri !== "string" || uri.length === 0) {
 export const client = new MongoClient(uri);
 
 export async function connectDatabase() {
-    try {
-        await client.connect();
-        console.log("MongoDB connected");
-    } catch (error) {
-        console.error(error);
-        console.log("MongoDB not connected");
-    }
+    await client.connect();
+    console.log("MongoDB connected");
 }

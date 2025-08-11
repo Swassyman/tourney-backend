@@ -3,7 +3,10 @@ import express from "express";
 import { connectDatabase } from "./config/db.js";
 import userRoutes from "./routes/userRoute.js";
 
-const PORT = process.env.PORT || 3912;
+const PORT = Number(process.env.PORT) || 3912;
+if (isNaN(PORT) || !Number.isInteger(PORT)) {
+    throw new Error("Invalid PORT number specified");
+}
 
 const app = express();
 app.use(cors());
@@ -16,6 +19,7 @@ app.get("/", (req, res) => {
 app.use("/user", userRoutes);
 
 await connectDatabase();
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
