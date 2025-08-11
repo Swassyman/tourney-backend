@@ -1,11 +1,11 @@
 import express from "express";
-const router = express.Router();
-import { register, login, logout } from "../controllers/userController.js";
+import { login, register } from "../controllers/userController.js";
 import { authenticateToken } from "../midldlewares/jwtauth.js";
 
+const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/logout", logout);
+// router.post("/logout", logout); // todo: @dcdunkan
 
 export default router;
