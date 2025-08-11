@@ -3,9 +3,11 @@
     "version": "1.0.0",
     "description": "",
     "main": "app.js",
+    "type": "module",
     "scripts": {
+        "start": "node --env-file=.env app.js",
         "dev": "node --env-file=.env --watch app.js",
-        "start": "node --env-file=.env app.js"
+        "fmt": "dprint fmt"
     },
     "keywords": [],
     "author": "",
@@ -19,7 +21,6 @@
         "mongodb": "^6.18.0",
         "zod": "^4.0.16"
     },
-    "type": "module",
     "devDependencies": {
         "dprint": "^0.50.1"
     }

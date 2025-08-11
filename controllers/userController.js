@@ -1,5 +1,6 @@
 import { hash, verify } from "@node-rs/argon2";
 import { z, ZodError } from "zod/v4";
+import { db } from "../config/db.js";
 
 const REGISTER_SCHEMA = z.object({
     username: z.string()
@@ -18,13 +19,14 @@ const REGISTER_SCHEMA = z.object({
 export async function register(req, res) {
     try {
         const { username, email, password } = REGISTER_SCHEMA.parse(req.body);
-        const existingUser = await req.db.collection("users").findOne({ emailid: email });
+        const existingUser = await db.collection("users")
+            .findOne({ emailid: email });
         if (existingUser) {
             return res.status(400).json({ error: "Email ID is already used" });
         }
 
         const passwordHash = await hash(password);
-        const newUser = await req.db.collection("users").insertOne({
+        const newUser = await db.collection("users").insertOne({
             username,
             emailid: email,
             passwordHash: passwordHash,
@@ -57,7 +59,8 @@ const LOGIN_SCHEMA = z.object({
 export async function login(req, res) {
     try {
         const { email, password } = LOGIN_SCHEMA.parse(req.body);
-        const user = await req.db.collection("users").findOne({ emailid: email });
+        const user = await db.collection("users")
+            .findOne({ emailid: email });
         if (!user) {
             return res.status(400).json({ error: "Invalid email or password" });
         }
@@ -80,6 +83,7 @@ export async function login(req, res) {
     }
 }
 
+// don't touch yet. assigned for @dcdunkan later.
 /** @type {import("express").RequestHandler} */
 export async function logout(req, res) {
     try {

@@ -1,5 +1,10 @@
 import { verify } from "@node-rs/argon2";
-import { joseAlgorithmHS256, JWSRegisteredHeaders, JWTRegisteredClaims, parseJWT } from "@oslojs/jwt";
+import {
+    joseAlgorithmHS256,
+    JWSRegisteredHeaders,
+    JWTRegisteredClaims,
+    parseJWT,
+} from "@oslojs/jwt";
 
 const JWT_SECRET_TOKEN = process.env.JWT_SECRET;
 if (typeof JWT_SECRET_TOKEN !== "string" || JWT_SECRET_TOKEN.length === 0) {
@@ -10,10 +15,12 @@ const BEARER_PREFIX = "Bearer ";
 
 /** @type {import("express").RequestHandler} */
 export async function authenticateToken(req, res, next) {
-    /** @type {string} */
     const authHeader = req.headers.authorization;
 
-    if (!authHeader.startsWith(BEARER_PREFIX) || authHeader.length <= BEARER_PREFIX.length) {
+    if (
+        !authHeader.startsWith(BEARER_PREFIX)
+        || authHeader.length <= BEARER_PREFIX.length
+    ) {
         return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -21,7 +28,6 @@ export async function authenticateToken(req, res, next) {
     const isValid = await verify(
         token,
         joseAlgorithmHS256,
-        new TextEncoder().encode(JWT_SECRET_TOKEN),
     );
     if (!isValid) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -40,6 +46,7 @@ export async function authenticateToken(req, res, next) {
         return res.status(401).json({ error: "Token not valid yet" });
     }
 
+    // todo: fix
     req.user = payload;
     next();
 }
