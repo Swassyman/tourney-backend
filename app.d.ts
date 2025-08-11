@@ -1,14 +1,16 @@
 import "express";
 
 declare global {
-    namespace Express {
+    namespace Tourney {
         interface User {
             id: string;
             name: string;
         }
+    }
 
+    namespace Express {
         interface Request {
-            user?: User;
+            user?: Tourney.User;
         }
     }
 }
