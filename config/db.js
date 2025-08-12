@@ -10,9 +10,15 @@ if (typeof DATABASE_NAME !== "string" || DATABASE_NAME.length === 0) {
 }
 
 const client = new MongoClient(MONGO_URI);
-export const db = client.db(DATABASE_NAME);
+const db = client.db(DATABASE_NAME);
 
 export async function connectDatabase() {
     await client.connect();
     console.log("MongoDB connected");
 }
+
+/** @type {import("mongodb").Collection<Tourney.User>} */
+export const users = db.collection("users");
+
+/** @type {import("mongodb").Collection<Tourney.UserRefreshToken>} */
+export const refreshTokens = db.collection("userRefreshTokens");
