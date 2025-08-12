@@ -1,14 +1,24 @@
 import { hash, verify } from "@node-rs/argon2";
+import { jwtVerify } from "jose";
+import { ObjectId } from "mongodb";
+import { fromError } from "zod-validation-error";
 import { z, ZodError } from "zod/v4";
-import { db } from "../config/db.js";
+import { users } from "../config/db.js";
+import {
+    generateAccessToken,
+    generateRefreshToken,
+    JWS_ALG_HEADER_PARAMETER,
+    JWT_REFRESH_SECRET_SIGN_KEY,
+    JWT_REFRESH_TOKEN_EXPIRY,
+} from "../jwt-session.js";
 
 const REGISTER_SCHEMA = z.object({
     username: z.string()
         .min(3)
         .max(32)
-        .trim()
-        .toLowerCase()
-        .refine((username) => !/[^a-zA-Z0-9]/.test(username)),
+        .trim(),
+    // .toLowerCase(),
+    // .refine((username) => !/[^a-zA-Z0-9]/.test(username)),
     email: z.email(),
     password: z.string().min(6).max(256),
 }).strict();
@@ -19,16 +29,17 @@ const REGISTER_SCHEMA = z.object({
 export async function register(req, res) {
     try {
         const { username, email, password } = REGISTER_SCHEMA.parse(req.body);
-        const existingUser = await db.collection("users")
-            .findOne({ emailid: email });
-        if (existingUser) {
-            return res.status(400).json({ error: "Email ID is already used" });
+        const existingUser = await users.findOne({ emailid: email });
+        if (existingUser != null) {
+            return res.status(400).json({
+                message: "Email ID is already used",
+            });
         }
 
         const passwordHash = await hash(password);
-        const newUser = await db.collection("users").insertOne({
-            username,
-            emailid: email,
+        const newUser = await users.insertOne({
+            username: username,
+            email: email,
             passwordHash: passwordHash,
         });
 
@@ -39,14 +50,16 @@ export async function register(req, res) {
         });
     } catch (error) {
         if (error instanceof ZodError) {
+            console.log(error.issues);
+
             const message = error.issues.length == 0
                 ? "Invalid inputs"
                 : error.issues[0].message;
-            return res.status(400).json({ error: message });
+            return res.status(400).json({ message: message });
         }
 
         console.error("Error during registration:", error);
-        return res.status(500).json({ error: "Internal server error" });
+        return res.status(500).json({ message: "Internal server error" });
     }
 }
 
@@ -59,37 +72,142 @@ const LOGIN_SCHEMA = z.object({
 export async function login(req, res) {
     try {
         const { email, password } = LOGIN_SCHEMA.parse(req.body);
-        const user = await db.collection("users")
-            .findOne({ emailid: email });
+        const user = await users.findOne({ email: email });
         if (!user) {
-            return res.status(400).json({ error: "Invalid email or password" });
+            return res
+                .status(400)
+                .json({ message: "Invalid email or password" });
         }
 
         const isPasswordValid = await verify(user.passwordHash, password);
         if (!isPasswordValid) {
-            return res.status(400).json({ error: "Invalid email or password" });
+            return res
+                .status(400)
+                .json({ message: "Invalid email or password" });
         }
 
-        res.status(200).json({ message: "Login successful", userId: user._id });
+        const userId = user._id.toString();
+        const accessToken = await generateAccessToken({ userId });
+        const refreshToken = await generateRefreshToken({ userId });
+
+        res
+            .status(200)
+            .cookie("refreshToken", refreshToken, { // todo: make this a constant
+                maxAge: JWT_REFRESH_TOKEN_EXPIRY,
+                httpOnly: true,
+                sameSite: "lax",
+            })
+            .json({
+                accessToken: accessToken,
+                user: {
+                    name: user.username,
+                    email: user.email,
+                },
+            });
     } catch (error) {
         if (error instanceof ZodError) {
-            const message = error.issues.length == 0
-                ? "Invalid inputs"
-                : error.issues[0].message;
-            return res.status(400).json({ error: message });
+            const parsed = fromError(error);
+            return res
+                .status(400)
+                .json({ message: parsed.toString() });
         }
         console.error("Error during login:", error);
-        return res.status(500).json({ error: "Internal server error" });
+        return res
+            .status(500)
+            .json({ message: "Internal server error" });
     }
 }
 
-// don't touch yet. assigned for @dcdunkan later.
+/** @type {import("express").RequestHandler} */
+export async function refresh(req, res) {
+    /** @type {Tourney.ICookies} */
+    const cookies = req.cookies;
+
+    if (
+        typeof cookies !== "object" || !("refreshToken" in cookies)
+        || typeof cookies.refreshToken !== "string"
+        || cookies.refreshToken.length === 0
+    ) {
+        return res
+            .status(401)
+            .json({ message: "Unauthorised" });
+    }
+
+    try {
+        const refreshToken = cookies.refreshToken;
+        const { payload } =
+            /** @type {import("jose").JWTVerifyResult<Tourney.IJWTPayload>} */ (await jwtVerify(
+                refreshToken,
+                JWT_REFRESH_SECRET_SIGN_KEY,
+                { algorithms: [JWS_ALG_HEADER_PARAMETER] },
+            ));
+
+        const user = await users.findOne({ _id: new ObjectId(payload.userId) });
+        if (user == null) {
+            return res
+                .status(401)
+                .json({ message: "Unauthorised" });
+        }
+
+        const userId = user._id.toString();
+        const accessToken = await generateAccessToken({ userId: userId });
+        const newRefreshToken = await generateRefreshToken({ userId: userId });
+
+        return res
+            .status(200)
+            .cookie("refreshToken", newRefreshToken, { // todo: make this a constant
+                maxAge: JWT_REFRESH_TOKEN_EXPIRY,
+                httpOnly: true,
+                sameSite: "lax",
+            })
+            .json({
+                accessToken: accessToken,
+                user: {
+                    name: user.username,
+                    email: user.email,
+                },
+            });
+    } catch (error) {
+        console.log(error);
+        return res
+            .status(401)
+            .json({ message: "Unauthorised" }); // todo: what about 500?
+    }
+}
+
 /** @type {import("express").RequestHandler} */
 export async function logout(req, res) {
     try {
-        //  idk what to do here, maybe disable token?
+        const cookies = req.cookies;
+        if (
+            typeof cookies !== "object" || !("refreshToken" in cookies)
+            || typeof cookies.refreshToken !== "string"
+            || cookies.refreshToken.length === 0
+        ) {
+            return res.sendStatus(204);
+        }
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            sameSite: "lax",
+        });
+        res.status(200).json({ message: "Logged out successfully" });
     } catch (error) {
         console.error("Error during logout:", error);
     }
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
+}
+
+/** @type {import("express").RequestHandler} */
+export async function me(req, res, next) {
+    const user = await users.findOne({ _id: new ObjectId(req.user.id) });
+    if (user == null) {
+        await logout(req, res, next);
+        return;
+    }
+    return res
+        .status(200)
+        .json({
+            name: user.username,
+            email: user.email,
+        });
 }
