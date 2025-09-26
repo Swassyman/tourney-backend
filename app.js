@@ -1,7 +1,7 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import { connectDatabase } from "./config/db.js";
-import userRoutes from "./routes/userRoute.js";
+import userRoutes from "./routes/user.route.js";
 
 const PORT = Number(process.env.PORT) || 3912;
 if (isNaN(PORT) || !Number.isInteger(PORT)) {

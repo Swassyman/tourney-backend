@@ -10,7 +10,7 @@ import {
     JWS_ALG_HEADER_PARAMETER,
     JWT_REFRESH_SECRET_SIGN_KEY,
     JWT_REFRESH_TOKEN_EXPIRY,
-} from "../jwt-session.js";
+} from "../utilities/jwt-session.js";
 
 const REGISTER_SCHEMA = z.object({
     username: z.string()

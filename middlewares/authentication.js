@@ -2,7 +2,7 @@ import { jwtVerify, SignJWT } from "jose";
 import {
     JWS_ALG_HEADER_PARAMETER,
     JWT_ACCESS_SECRET_SIGN_KEY,
-} from "../jwt-session.js";
+} from "../utilities/jwt-session.js";
 
 const BEARER_PREFIX = "Bearer ";
 
@@ -24,9 +24,7 @@ export async function authenticateToken(req, res, next) {
             /** @type {import("jose").JWTVerifyResult<Tourney.IJWTPayload>} */ (await jwtVerify(
                 accessToken,
                 JWT_ACCESS_SECRET_SIGN_KEY,
-                {
-                    algorithms: [JWS_ALG_HEADER_PARAMETER],
-                },
+                { algorithms: [JWS_ALG_HEADER_PARAMETER] },
             ));
 
         req.user = {
