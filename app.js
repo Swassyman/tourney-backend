@@ -1,7 +1,8 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import { connectDatabase } from "./config/db.js";
-import userRoutes from "./routes/user.route.js";
+import clubRouter from "./routes/club.route.js";
+import userRouter from "./routes/user.route.js";
 
 const PORT = Number(process.env.PORT) || 3912;
 if (isNaN(PORT) || !Number.isInteger(PORT)) {
@@ -43,10 +44,11 @@ app.get("/", (req, res) => {
     res.status(200).json({ status: "active" });
 });
 
-app.use("/user", userRoutes);
+app.use("/user", userRouter);
+app.use("/clubs", clubRouter);
 
 await connectDatabase();
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
 });

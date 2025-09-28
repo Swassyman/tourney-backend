@@ -36,18 +36,15 @@ export async function register(req, res) {
             });
         }
 
-        const passwordHash = await hash(password);
-        const newUser = await users.insertOne({
+        await users.insertOne({
             username: username,
             email: email,
-            passwordHash: passwordHash,
+            passwordHash: await hash(password),
         });
 
         // todo: send a verification email
-        res.status(201).json({
-            message: "User registered successfully",
-            userId: newUser.insertedId, // todo: remove this, and make them login after registration. no auto-login
-        });
+        res.status(201)
+            .json({ message: "User registered successfully" });
     } catch (error) {
         if (error instanceof ZodError) {
             console.log(error.issues);
@@ -97,13 +94,7 @@ export async function login(req, res) {
                 httpOnly: true,
                 sameSite: "lax",
             })
-            .json({
-                accessToken: accessToken,
-                user: {
-                    name: user.username,
-                    email: user.email,
-                },
-            });
+            .json({ accessToken: accessToken });
     } catch (error) {
         if (error instanceof ZodError) {
             const parsed = fromError(error);
@@ -168,6 +159,11 @@ export async function refresh(req, res) {
                 },
             });
     } catch (error) {
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            sameSite: "lax",
+        });
+
         console.log(error);
         return res
             .status(401)

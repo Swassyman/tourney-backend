@@ -8,7 +8,9 @@ router.post("/register", userController.register);
 router.post("/login", userController.login);
 router.get("/refresh", userController.refresh);
 
+// after authentication
 router.use(authenticateToken);
+
 router.get("/me", userController.me);
 router.post("/logout", userController.logout);
 

@@ -1,4 +1,4 @@
-import { jwtVerify, SignJWT } from "jose";
+import { jwtVerify } from "jose";
 import {
     JWS_ALG_HEADER_PARAMETER,
     JWT_ACCESS_SECRET_SIGN_KEY,
