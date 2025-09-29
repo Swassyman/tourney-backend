@@ -1,6 +1,6 @@
 import express from "express";
-import * as userController from "../controllers/userController.js";
-import { authenticateToken } from "../midldlewares/jwtauth.js";
+import * as userController from "../controllers/user.controller.js";
+import { authenticateToken } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
@@ -8,7 +8,9 @@ router.post("/register", userController.register);
 router.post("/login", userController.login);
 router.get("/refresh", userController.refresh);
 
+// after authentication
 router.use(authenticateToken);
+
 router.get("/me", userController.me);
 router.post("/logout", userController.logout);
 
