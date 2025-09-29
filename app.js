@@ -1,4 +1,4 @@
-import cors from "cors";
+import cookieParser from "cookie-parser";
 import express from "express";
 import { connectDatabase } from "./config/db.js";
 import userRoutes from "./routes/userRoute.js";
@@ -9,7 +9,34 @@ if (isNaN(PORT) || !Number.isInteger(PORT)) {
 }
 
 const app = express();
-app.use(cors());
+app.use((req, res, next) => {
+    console.log(req.method, req.hostname, req.path);
+    next();
+});
+
+const FRONTEND_ORIGIN = "http://localhost:5173";
+// the cors plugin felt messier to configure, so here is manual:
+app.use((req, res, next) => {
+    if (req.headers.origin === FRONTEND_ORIGIN) {
+        res.setHeader("Access-Control-Allow-Origin", FRONTEND_ORIGIN);
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+        res.setHeader(
+            "Access-Control-Allow-Methods",
+            "GET,POST,PATCH,PUT,DELETE,OPTIONS",
+        );
+        res.setHeader(
+            "Access-Control-Allow-Headers",
+            "Content-Type,Authorization",
+        );
+    }
+    if (req.method === "OPTIONS") {
+        res.sendStatus(204);
+        return;
+    }
+    next();
+});
+
+app.use(cookieParser());
 app.use(express.json());
 
 app.get("/", (req, res) => {

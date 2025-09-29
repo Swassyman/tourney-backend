@@ -1,15 +1,8 @@
-import { verify } from "@node-rs/argon2";
+import { jwtVerify, SignJWT } from "jose";
 import {
-    joseAlgorithmHS256,
-    JWSRegisteredHeaders,
-    JWTRegisteredClaims,
-    parseJWT,
-} from "@oslojs/jwt";
-
-const JWT_SECRET_TOKEN = process.env.JWT_SECRET;
-if (typeof JWT_SECRET_TOKEN !== "string" || JWT_SECRET_TOKEN.length === 0) {
-    throw new Error("Invalid JWT_SECRET environment variable");
-}
+    JWS_ALG_HEADER_PARAMETER,
+    JWT_ACCESS_SECRET_SIGN_KEY,
+} from "../jwt-session.js";
 
 const BEARER_PREFIX = "Bearer ";
 
@@ -18,35 +11,29 @@ export async function authenticateToken(req, res, next) {
     const authHeader = req.headers.authorization;
 
     if (
-        !authHeader.startsWith(BEARER_PREFIX)
+        typeof authHeader !== "string"
+        || !authHeader.startsWith(BEARER_PREFIX)
         || authHeader.length <= BEARER_PREFIX.length
     ) {
-        return res.status(401).json({ error: "Unauthorized" });
+        return res.status(401).json({ message: "Unauthorised" });
     }
 
-    const token = authHeader.slice(BEARER_PREFIX.length);
-    const isValid = await verify(
-        token,
-        joseAlgorithmHS256,
-    );
-    if (!isValid) {
-        return res.status(401).json({ error: "Unauthorized" });
-    }
+    try {
+        const accessToken = authHeader.slice(BEARER_PREFIX.length);
+        const { payload } =
+            /** @type {import("jose").JWTVerifyResult<Tourney.IJWTPayload>} */ (await jwtVerify(
+                accessToken,
+                JWT_ACCESS_SECRET_SIGN_KEY,
+                {
+                    algorithms: [JWS_ALG_HEADER_PARAMETER],
+                },
+            ));
 
-    const [header, payload] = parseJWT(token); // do i need to check payload?
-    const headerParams = new JWSRegisteredHeaders(header);
-    if (headerParams.algorithm() !== joseAlgorithmHS256) {
-        return res.status(401).json({ error: "Unsupported algorithm" });
+        req.user = {
+            id: payload.userId,
+        };
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorised" });
     }
-    const claims = new JWTRegisteredClaims(payload);
-    if (!claims.verifyExpiration()) {
-        return res.status(401).json({ error: "Token expired" });
-    }
-    if (claims.hasNotBefore() && !claims.verifyNotBefore()) {
-        return res.status(401).json({ error: "Token not valid yet" });
-    }
-
-    // todo: fix
-    req.user = payload;
-    next();
 }
