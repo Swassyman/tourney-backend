@@ -1,7 +1,8 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import { connectDatabase } from "./config/db.js";
-import clubRouter from "./routes/club.route.js";
+import clubRouter from "./routes/club.routes.js";
+import clubsRouter from "./routes/clubs.routes.js";
 import userRouter from "./routes/user.route.js";
 
 const PORT = Number(process.env.PORT) || 3912;
@@ -45,7 +46,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/user", userRouter);
-app.use("/clubs", clubRouter);
+app.use("/club", clubRouter);
+app.use("/clubs", clubsRouter);
 
 await connectDatabase();
 
