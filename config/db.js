@@ -31,3 +31,6 @@ export const clubMembers = db.collection("clubMembers");
 
 /** @type {import("mongodb").Collection<Tourney.Tournament>} */
 export const tournaments = db.collection("tournaments");
+
+/** @type {import("mongodb").Collection<Tourney.Stage>} */
+export const stages = db.collection("stages");

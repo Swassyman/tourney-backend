@@ -63,6 +63,52 @@ declare global {
             lossPoints: number;
             addScorePoints: boolean;
         };
+
+        // stages of a tournament
+        type Stage = WithId<{
+            tournamentId: ObjectId;
+            name: string;
+            type: "league" | "knockout" | "groups";
+            config: StageConfig;
+            order: number;
+            items: StageItem[];
+        }>;
+
+        // config for each stage
+        type StageConfig = {
+            // League settings
+            teamsCount?: number;
+            rounds?: number;
+
+            // Knockout settings
+            startingRound?:
+                | "final"
+                | "semi"
+                | "quarter"
+                | "roundOf16"
+                | "roundOf32";
+            thirdPlaceMatch?: boolean;
+
+            // Groups settings
+            groupsCount?: number;
+            teamsPerGroup?: number;
+            advancePerGroup?: number;
+        };
+
+        // each stage
+        type StageItem = withId<{
+            name: string;
+            teamCount: number;
+            inputs: StageInput[];
+        }>;
+
+        type StageInput = {
+            slot: number; // some matches like A vs B, some teams can be B (this isnt random, its assigned)
+            sourceType: "direct" | "winner" | "loser"; // direct - seeded team, winner/loser - team from a previous match decision
+            teamId?: ObjectId;
+            sourceStageItemId?: ObjectId;
+            sourceMatchId?: ObjectId;
+        };
     }
 
     namespace Express {

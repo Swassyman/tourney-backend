@@ -247,7 +247,7 @@ export async function deleteTournament(req, res) {
             });
         }
 
-        // TODO: Delete related data (teams, players, stages, matches, courts)
+        // todo: Delete related data (teams, players, stages, matches, courts)
 
         res.status(200).json({
             message: "Deleted tournament successfully",

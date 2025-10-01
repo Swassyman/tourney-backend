@@ -3,6 +3,7 @@ import express from "express";
 import { connectDatabase, tournaments } from "./config/db.js";
 import clubRouter from "./routes/club.routes.js";
 import clubsRouter from "./routes/clubs.routes.js";
+import stageRouter from "./routes/stage.routes.js";
 import tournamentsRouter from "./routes/tournaments.routes.js";
 import userRouter from "./routes/user.route.js";
 
@@ -50,6 +51,7 @@ app.use("/user", userRouter);
 app.use("/club", clubRouter);
 app.use("/clubs", clubsRouter);
 app.use("/tournaments", tournamentsRouter);
+app.use("/stages", stageRouter);
 
 await connectDatabase();
 
