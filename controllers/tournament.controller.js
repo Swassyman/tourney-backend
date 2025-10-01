@@ -25,7 +25,7 @@ export async function createTournament(req, res) {
         const membership = await clubMembers.findOne({
             clubId: new ObjectId(parsed.clubId),
             userId: new ObjectId(req.user.id),
-            role: { $in: ["owner"] },
+            role: "owner",
         });
 
         if (membership == null) {
