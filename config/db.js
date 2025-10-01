@@ -20,8 +20,8 @@ export async function connectDatabase() {
 /** @type {import("mongodb").Collection<Tourney.User>} */
 export const users = db.collection("users");
 
-/** @type {import("mongodb").Collection<Tourney.UserRefreshToken>} */
-export const refreshTokens = db.collection("userRefreshTokens");
+// /** @type {import("mongodb").Collection<Tourney.UserRefreshToken>} */
+// export const refreshTokens = db.collection("userRefreshTokens");
 
 /** @type {import("mongodb").Collection<Tourney.Club>} */
 export const clubs = db.collection("clubs");
