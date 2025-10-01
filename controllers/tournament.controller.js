@@ -5,7 +5,8 @@ import { clubMembers, tournaments } from "../config/db.js";
 const CREATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256),
     clubId: z.string().trim().min(1),
-    startTime: z.string().optional(), //convert to datetime
+    startTime: z.string().optional(), //todo: convert to datetime
+    endTime: z.string().optional(),
     settings: z.object({
         rankingConfig: z.object({
             winPoints: z.number().min(0).default(3),
@@ -37,9 +38,9 @@ export async function createTournament(req, res) {
         const { insertedId: tournamentId } = await tournaments.insertOne({
             name: parsed.name,
             clubId: new ObjectId(parsed.clubId),
-            created: new Date(),
+            createdAt: new Date(),
             startTime: parsed.startTime ? new Date(parsed.startTime) : null,
-            status: "draft",
+            endTime: parsed.endTime ? new Date(parsed.endTime) : null,
             settings: {
                 rankingConfig: {
                     winPoints: parsed.settings?.rankingConfig?.winPoints ?? 3,
@@ -115,7 +116,7 @@ export async function getClubTournaments(req, res) {
 
         const clubTournaments = await tournaments.find({
             clubId: new ObjectId(req.params.clubId),
-        }).sort({ created: -1 }).toArray();
+        }).sort({ createdAt: -1 }).toArray();
 
         res.status(200).json(clubTournaments);
     } catch (error) {
@@ -126,8 +127,8 @@ export async function getClubTournaments(req, res) {
 
 const UPDATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256).optional(),
-    startTime: z.string().optional(), //i dont know how to convert to date (they use datetime() but its deprecated)
-    status: z.enum(["draft", "active", "completed"]).optional(),
+    startTime: z.string().optional(), //todo: i dont know how to convert to date (they use datetime() but its deprecated)
+    endTime: z.string().optional(),
     settings: z.object({
         rankingConfig: z.object({
             winPoints: z.number().min(0).optional(),
@@ -169,7 +170,7 @@ export async function updateTournament(req, res) {
         const updateDoc = {};
         if (parsed.name) updateDoc.name = parsed.name;
         if (parsed.startTime) updateDoc.startTime = new Date(parsed.startTime);
-        if (parsed.status) updateDoc.status = parsed.status;
+        if (parsed.endTime) updateDoc.endTime = new Date(parsed.endTime);
         if (parsed.settings?.rankingConfig) {
             updateDoc["settings.rankingConfig"] = {
                 ...tournament.settings?.rankingConfig,

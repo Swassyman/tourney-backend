@@ -47,9 +47,9 @@ declare global {
         type Tournament = WithId<{
             name: string;
             clubId: ObjectId;
-            created: Date;
+            createdAt: Date;
             startTime: Date | null;
-            status: "active" | "completed" | "draft";
+            endTime: Date | null;
             settings: TournamentSettings;
         }>;
 
