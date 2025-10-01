@@ -43,6 +43,26 @@ declare global {
             role: "owner" | "admin" | "member";
             joined_at: Date;
         }>;
+
+        type Tournament = WithId<{
+            name: string;
+            clubId: ObjectId;
+            createdAt: Date;
+            startTime: Date | null;
+            endTime: Date | null;
+            settings: TournamentSettings;
+        }>;
+
+        type TournamentSettings = {
+            rankingConfig: RankingConfig;
+        };
+
+        type RankingConfig = {
+            winPoints: number;
+            drawPoints: number;
+            lossPoints: number;
+            addScorePoints: boolean;
+        };
     }
 
     namespace Express {
