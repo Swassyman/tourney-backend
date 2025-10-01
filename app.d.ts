@@ -2,6 +2,10 @@ import "express";
 import { JWTPayload } from "jose";
 import { ObjectId } from "mongodb";
 
+type WithId<T> = {
+    _id?: ObjectId;
+} & T;
+
 declare global {
     namespace Tourney {
         interface SessionUser {
@@ -16,28 +20,29 @@ declare global {
             refreshToken?: string;
         };
 
-        interface User {
-            username: string;
+        type User = WithId<{
+            name: string;
+            handle: string;
             email: string;
             passwordHash: string;
-        }
+        }>;
 
-        interface UserRefreshToken {
-            userId: ObjectId;
-            refreshToken: string;
-        }
+        // type UserRefreshToken = WithId<{
+        //     userId: ObjectId;
+        //     refreshToken: string;
+        // }>;
 
-        interface Club {
+        type Club = WithId<{
             name: string;
-        }
+            handle: string;
+        }>;
 
-        interface ClubMember {
+        type ClubMember = WithId<{
             userId: ObjectId;
             clubId: ObjectId;
             role: "owner" | "admin" | "member";
-            status: "active" | "invite_pending";
             joined_at: Date;
-        }
+        }>;
     }
 
     namespace Express {

@@ -13,7 +13,11 @@ import {
 } from "../utilities/jwt-session.js";
 
 const REGISTER_SCHEMA = z.object({
-    username: z.string()
+    name: z.string()
+        .min(3)
+        .max(32)
+        .trim(),
+    handle: z.string() // todo: fix this
         .min(3)
         .max(32)
         .trim(),
@@ -28,8 +32,10 @@ const REGISTER_SCHEMA = z.object({
 /** @type {import("express").RequestHandler} */
 export async function register(req, res) {
     try {
-        const { username, email, password } = REGISTER_SCHEMA.parse(req.body);
-        const existingUser = await users.findOne({ emailid: email });
+        const { name, handle, email, password } = REGISTER_SCHEMA.parse(
+            req.body,
+        );
+        const existingUser = await users.findOne({ email: email });
         if (existingUser != null) {
             return res.status(400).json({
                 message: "Email ID is already used",
@@ -37,7 +43,8 @@ export async function register(req, res) {
         }
 
         await users.insertOne({
-            username: username,
+            name: name,
+            handle: handle,
             email: email,
             passwordHash: await hash(password),
         });
@@ -154,7 +161,9 @@ export async function refresh(req, res) {
             .json({
                 accessToken: accessToken,
                 user: {
-                    name: user.username,
+                    id: user._id,
+                    name: user.name,
+                    handle: user.handle,
                     email: user.email,
                 },
             });
@@ -203,7 +212,9 @@ export async function me(req, res, next) {
     return res
         .status(200)
         .json({
-            name: user.username,
+            name: user.name,
+            id: user._id,
+            handle: user.handle,
             email: user.email,
         });
 }
