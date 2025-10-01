@@ -5,13 +5,13 @@ import { clubMembers, tournaments } from "../config/db.js";
 const CREATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256),
     clubId: z.string().trim().min(1),
-    startTime: z.string().optional(), //todo: convert to datetime
+    startTime: z.string().optional(), // todo: convert to datetime
     endTime: z.string().optional(),
     settings: z.object({
         rankingConfig: z.object({
             winPoints: z.number().min(0).default(3),
             drawPoints: z.number().min(0).default(1),
-            lossPoints: z.number().default(0), //set up a min value (can go negative)
+            lossPoints: z.number().default(0), // set up a min value (can go negative)
             addScorePoints: z.boolean().default(false),
         }).optional(),
     }).optional(),
@@ -31,7 +31,8 @@ export async function createTournament(req, res) {
 
         if (membership == null) {
             return res.status(403).json({
-                message: "You don't have permission to create tournaments in this club",
+                message:
+                    "You don't have permission to create tournaments in this club",
             });
         }
 
@@ -46,7 +47,8 @@ export async function createTournament(req, res) {
                     winPoints: parsed.settings?.rankingConfig?.winPoints ?? 3,
                     drawPoints: parsed.settings?.rankingConfig?.drawPoints ?? 1,
                     lossPoints: parsed.settings?.rankingConfig?.lossPoints ?? 0,
-                    addScorePoints: parsed.settings?.rankingConfig?.addScorePoints ?? false,
+                    addScorePoints:
+                        parsed.settings?.rankingConfig?.addScorePoints ?? false,
                 },
             },
         });
@@ -127,7 +129,7 @@ export async function getClubTournaments(req, res) {
 
 const UPDATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256).optional(),
-    startTime: z.string().optional(), //todo: i dont know how to convert to date (they use datetime() but its deprecated)
+    startTime: z.string().optional(), // todo: i dont know how to convert to date (they use datetime() but its deprecated)
     endTime: z.string().optional(),
     settings: z.object({
         rankingConfig: z.object({
@@ -180,7 +182,7 @@ export async function updateTournament(req, res) {
 
         const { modifiedCount } = await tournaments.updateOne(
             { _id: new ObjectId(req.params.tournamentId) },
-            { $set: updateDoc }
+            { $set: updateDoc },
         );
 
         if (modifiedCount === 0) {
@@ -226,7 +228,7 @@ export async function deleteTournament(req, res) {
         const membership = await clubMembers.findOne({
             clubId: tournament.clubId,
             userId: new ObjectId(req.user.id),
-            role: { $in: ["owner", "admin"] }, //can admin delete tournament?
+            role: { $in: ["owner", "admin"] }, // can admin delete tournament?
         });
 
         if (membership == null) {
