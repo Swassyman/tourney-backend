@@ -12,7 +12,7 @@
     "keywords": [],
     "author": "",
     "license": "MIT",
-    "packageManager": "pnpm@10.14.0",
+    "packageManager": "pnpm@10.17.1",
     "dependencies": {
         "@node-rs/argon2": "^2.0.2",
         "cookie-parser": "^1.4.7",
