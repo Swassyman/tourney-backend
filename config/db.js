@@ -34,3 +34,15 @@ export const tournaments = db.collection("tournaments");
 
 /** @type {import("mongodb").Collection<Tourney.Stage>} */
 export const stages = db.collection("stages");
+
+/** @type {import("mongodb").Collection<Tourney.StageItem>} */
+export const stageItems = db.collection("stageItems");
+
+/** @type {import("mongodb").Collection<Tourney.Round>} */
+export const rounds = db.collection("rounds");
+
+/** @type {import("mongodb").Collection<Tourney.Match>} */
+export const matches = db.collection("matches");
+
+/** @type {import("mongodb").Collection<Tourney.Team>} */
+export const teams = db.collection("teams");

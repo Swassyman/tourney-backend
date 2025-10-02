@@ -44,6 +44,26 @@ declare global {
             joined_at: Date;
         }>;
 
+        type Team = WithId<
+            {
+                tournamentId: ObjectId;
+                name: String;
+                teamStats: TeamStats;
+                playerIds: ObjectId[];
+            }
+        >;
+
+        type TeamStats = {
+            score: number;
+            wins: number;
+            losses: number;
+            draws: number;
+        };
+
+        type Player = WithId<
+            { tournamentId: ObjectId; teamid: ObjectId; name: String }
+        >;
+
         type Tournament = WithId<{
             name: string;
             clubId: ObjectId;
@@ -109,6 +129,27 @@ declare global {
             sourceStageItemId?: ObjectId;
             sourceMatchId?: ObjectId;
         };
+
+        type Round = WithId<
+            { stageItemId: ObjectId; tournamentId: ObjectId; number: number }
+        >;
+
+        type Match = WithId<
+            {
+                tournamentId: ObjectId;
+                stageId: ObjectId;
+                stageItemId: ObjectId;
+                roundId: ObjectId;
+                startTime?: Date;
+                endTime?: Date;
+                participant1: ObjectId;
+                participant2: ObjectId;
+                court?: Court;
+                winnerId?: ObjectId;
+            }
+        >;
+
+        type Court = WithId<{ name: string }>;
     }
 
     namespace Express {
