@@ -38,7 +38,7 @@ export async function createTeam(req, res) {
         }
 
         const existingTeam = await teams.findOne({
-            tournament_id: tournamentId,
+            tournamentId: tournamentId,
             name: parsed.name,
         });
 
@@ -148,7 +148,7 @@ export async function updateTeam(req, res) {
         const updateDoc = {};
         if (parsed.name) {
             const existingTeam = await teams.findOne({
-                tournament_id: team.tournamentId,
+                tournamentId: team.tournamentId,
                 name: parsed.name,
                 _id: { $ne: teamId },
             });

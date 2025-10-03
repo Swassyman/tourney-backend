@@ -10,4 +10,7 @@ router.post("/create", teamController.createTeam);
 router.get("/:teamId", teamController.getTeam);
 router.patch("/:teamId/update", teamController.updateTeam);
 router.delete("/:teamId/delete", teamController.deleteTeam);
+
+router.get("/:teamId/matches", teamController.getTeamMatches);
+router.get("/:teamId/players", teamController.getTeamPlayers);
 export default router;

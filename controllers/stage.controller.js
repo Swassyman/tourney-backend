@@ -5,7 +5,7 @@ import { clubMembers, stages, tournaments } from "../config/db.js";
 const CREATE_SCHEMA = z.object({
     name: z.string().min(3).max(256),
     type: z.enum(["league", "knockout", "groups"]),
-    order: z.number().int(),
+    order: z.number().int().optional(),
     config: z.object({
         // league
         teamsCount: z.number().int().min(2).optional(),
@@ -18,13 +18,13 @@ const CREATE_SCHEMA = z.object({
             "quarter",
             "roundOf32",
             "roundOf16",
-        ]),
+        ]).optional(),
         thirdPlaceMatch: z.boolean().optional(),
 
         // groups
         groupsCount: z.number().int().min(1).optional(),
-        teamsPerGroup: z.number().int().min(1),
-        advancePerGroup: z.number().int().min(1),
+        teamsPerGroup: z.number().int().min(1).optional(),
+        advancePerGroup: z.number().int().min(1).optional(),
     }).optional(),
 }).strict();
 
@@ -118,41 +118,8 @@ export async function createStage(req, res) {
     }
 }
 
-/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
-export async function getTournamentStages(req, res) {
-    try {
-        const tournamentId = new ObjectId(req.params.tournamentId);
-
-        // Get tournament and verify access
-        const tournament = await tournaments.findOne({ _id: tournamentId });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
-        }
-
-        const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
-            userId: new ObjectId(req.user.id),
-        });
-
-        if (membership == null) {
-            return res.status(403).json({
-                message: "You are not a member of this club",
-            });
-        }
-
-        const tournamentStages = await stages.find({
-            tournamentId: tournamentId,
-        }).sort({ order: 1 }).toArray();
-
-        res.status(200).json(tournamentStages);
-    } catch (error) {
-        console.error("Error during getting tournament stages:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
-
 /** @type {import("express").RequestHandler<{ stageId: string }>} */
-export async function getStage(req, res) {
+export async function getStage(req, res) { // todo: some bug that cant successfully return a stage
     try {
         const stageId = new ObjectId(req.params.stageId);
 
@@ -161,7 +128,6 @@ export async function getStage(req, res) {
             return res.status(404).json({ message: "Stage not found" });
         }
 
-        // Get tournament and verify access
         const tournament = await tournaments.findOne({
             _id: stage.tournamentId,
         });

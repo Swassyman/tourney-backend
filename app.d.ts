@@ -119,6 +119,7 @@ declare global {
 
         // each stage
         type StageItem = WithId<{
+            stageId: ObjectId;
             name: string;
             teamCount: number;
             inputs: StageInput[];

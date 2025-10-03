@@ -6,10 +6,9 @@ const router = express.Router();
 
 router.use(authenticateToken); // todo: wrap in a general protected router
 
-router.post("/create", stageController.createStage);
-router.get("/:stageid", stageController.getStage);
-router.get("/tournament/:stageid", stageController.getTournamentStages);
-router.patch("/update/:stageid", stageController.updateStage);
-router.delete("/delete/:stageid", stageController.deleteStage);
+router.post("/:tournamentId/create", stageController.createStage);
+router.get("/:stageId", stageController.getStage);
+router.patch("/update/:stageId", stageController.updateStage);
+router.delete("/delete/:stageId", stageController.deleteStage);
 
 export default router;

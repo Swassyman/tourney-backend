@@ -1,6 +1,6 @@
 import cookieParser from "cookie-parser";
 import express from "express";
-import { connectDatabase, tournaments } from "./config/db.js";
+import { connectDatabase } from "./config/db.js";
 import clubRouter from "./routes/club.routes.js";
 import matchRouter from "./routes/match.routes.js";
 import playerRouter from "./routes/player.routes.js";

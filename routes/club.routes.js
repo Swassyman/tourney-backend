@@ -14,5 +14,6 @@ router.get("/:clubId/members", clubController.getClubMembers);
 router.post("/:clubId/members", clubController.addClubMember);
 
 router.get("/me/memberships", clubController.getMyClubMemberships);
+router.get("/:clubId/tournaments", clubController.getClubTournaments);
 
 export default router;

@@ -8,7 +8,10 @@ router.use(authenticateToken);
 
 router.post("/create", tournamentController.createTournament);
 router.get("/:tournamentId", tournamentController.getTournament);
-router.get("/:clubId", tournamentController.getClubTournaments);
 router.delete("/:tournamentId/delete", tournamentController.deleteTournament);
 router.patch("/:tournamentId/update", tournamentController.updateTournament);
+
+router.get("/:tournamentId/teams", tournamentController.getTournamentTeams);
+router.get("/:tournamentId/stages", tournamentController.getTournamentStages);
+
 export default router;

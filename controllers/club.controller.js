@@ -94,8 +94,6 @@ export async function getClub(req, res) {
     }
 }
 
-// todo: update / patch club
-
 /** @type {import("express").RequestHandler<{ clubId: string }>} */
 export async function deleteClub(req, res) {
     try {
@@ -124,8 +122,9 @@ export async function deleteClub(req, res) {
             .toArray();
         const tournamentIds = tournamentsToDelete.map(t => t._id);
 
+        await clubMembers.deleteMany({ clubId: clubId });
+
         if (tournamentIds.length > 0) {
-            await clubMembers.deleteMany({ clubId: clubId });
             await tournaments.deleteMany({ clubId });
             await teams.deleteMany({ tournamentId: { $in: tournamentIds } });
             await players.deleteMany({ tournamentId: { $in: tournamentIds } });
@@ -168,6 +167,7 @@ export async function getMyClubMemberships(req, res) {
                 },
             },
         ]).toArray();
+        console.log(clubMemberships);
         res.status(200).json(
             clubMemberships.map(
                 (
@@ -318,6 +318,37 @@ export async function addClubMember(req, res) {
         });
     } catch (error) {
         console.error("Error during getting clubs:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ clubId: string }>} */
+export async function getClubTournaments(req, res) {
+    try {
+        const membership = await clubMembers.findOne({
+            clubId: new ObjectId(req.params.clubId),
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const clubTournaments = await tournaments.find({
+            clubId: new ObjectId(req.params.clubId),
+        }).sort({ createdAt: -1 }).toArray();
+
+        if (clubTournaments.length === 0) {
+            return res.status(200).json({
+                message: "No tournaments found",
+            });
+        }
+        
+        res.status(200).json(clubTournaments);
+    } catch (error) {
+        console.error("Error during getting club tournaments:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
