@@ -62,7 +62,7 @@ declare global {
 
         type Player = WithId<{ 
             tournamentId: ObjectId; 
-            teamid: ObjectId; 
+            teamId: ObjectId; 
             name: String 
         }>;
 

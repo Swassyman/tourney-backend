@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, tournaments, teams, matches} from "../config/db.js";
+import { clubMembers, tournaments, teams, matches, players} from "../config/db.js";
 
 const CREATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256),
@@ -320,6 +320,38 @@ export async function getTournamentMatches(req, res) {
         res.status(200).json(tournamentMatches);
     } catch (error) {
         console.error("Error during getting tournament matches:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
+export async function getTournamentPlayers(req, res) {
+    try {
+        const tournamentId = new ObjectId(req.params.tournamentId);
+
+        const tournament = await tournaments.findOne({ _id: tournamentId });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const tournamentPlayers = await players.find({
+            tournamentId: tournamentId,
+        }).sort({ name: 1 }).toArray();
+
+        res.status(200).json(tournamentPlayers);
+    } catch (error) {
+        console.error("Error during getting tournament players:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
