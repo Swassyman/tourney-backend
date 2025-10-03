@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, tournaments, players, teams } from "../config/db.js";
+import { clubMembers, players, teams, tournaments } from "../config/db.js";
 
 const CREATE_PLAYER_SCHEMA = z.object({
     name: z.string().trim().min(1).max(256),
@@ -27,7 +27,8 @@ export async function createPlayer(req, res) {
 
         if (membership == null) {
             return res.status(403).json({
-                message: "You don't have permission to create players in this tournament",
+                message:
+                    "You don't have permission to create players in this tournament",
             });
         }
 
@@ -62,7 +63,9 @@ export async function getPlayer(req, res) {
             return res.status(404).json({ message: "Player not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: player.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: player.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -120,7 +123,9 @@ export async function assignPlayerToTeam(req, res) {
             });
         }
 
-        const tournament = await tournaments.findOne({ _id: player.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: player.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -140,18 +145,18 @@ export async function assignPlayerToTeam(req, res) {
         if (player.teamId) {
             await teams.updateOne(
                 { _id: player.teamId },
-                { $pull: { playerIds: playerId } }
+                { $pull: { playerIds: playerId } },
             );
         }
 
         await teams.updateOne(
             { _id: teamId },
-            { $addToSet: { playerIds: playerId } }
+            { $addToSet: { playerIds: playerId } },
         );
 
         await players.updateOne(
             { _id: playerId },
-            { $set: { teamId: teamId } }
+            { $set: { teamId: teamId } },
         );
 
         res.status(200).json({
@@ -187,7 +192,9 @@ export async function removePlayerFromTeam(req, res) {
             });
         }
 
-        const tournament = await tournaments.findOne({ _id: player.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: player.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -200,18 +207,19 @@ export async function removePlayerFromTeam(req, res) {
 
         if (membership == null) {
             return res.status(403).json({
-                message: "You don't have permission to remove players from teams",
+                message:
+                    "You don't have permission to remove players from teams",
             });
         }
 
         await teams.updateOne(
             { _id: player.teamId },
-            { $pull: { playerIds: playerId } }
+            { $pull: { playerIds: playerId } },
         );
 
         await players.updateOne(
             { _id: playerId },
-            { $set: { teamId: null } }
+            { $set: { teamId: null } },
         );
 
         res.status(200).json({
@@ -238,7 +246,9 @@ export async function updatePlayer(req, res) {
             return res.status(404).json({ message: "Player not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: player.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: player.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -264,7 +274,7 @@ export async function updatePlayer(req, res) {
 
         const { modifiedCount } = await players.updateOne(
             { _id: playerId },
-            { $set: updateDoc }
+            { $set: updateDoc },
         );
 
         if (modifiedCount === 0) {
@@ -297,7 +307,9 @@ export async function deletePlayer(req, res) {
             return res.status(404).json({ message: "Player not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: player.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: player.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -317,7 +329,7 @@ export async function deletePlayer(req, res) {
         if (player.teamId) {
             await teams.updateOne(
                 { _id: player.teamId },
-                { $pull: { playerIds: playerId } }
+                { $pull: { playerIds: playerId } },
             );
         }
 

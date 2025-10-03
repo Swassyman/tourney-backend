@@ -253,15 +253,15 @@ function generateKnockoutMatch(
             id: teamIds[0],
             name: teamMap.get(teamIds[0].toString()) || "",
             teamStats: {
-                score: 0
-            }
+                score: 0,
+            },
         },
         participant2: {
             tournamentId: tournamentId,
             id: teamIds[1],
             name: teamMap.get(teamIds[1].toString()) || "",
             teamStats: {
-                score: 0
+                score: 0,
             },
         },
     });

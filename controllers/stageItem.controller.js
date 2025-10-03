@@ -1,6 +1,12 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, tournaments, stages, stageItems, teams } from "../config/db.js";
+import {
+    clubMembers,
+    stageItems,
+    stages,
+    teams,
+    tournaments,
+} from "../config/db.js";
 
 const ASSIGN_TEAMS_SCHEMA = z.object({
     inputs: z.array(
@@ -15,15 +21,17 @@ const ASSIGN_TEAMS_SCHEMA = z.object({
                 if (data.sourceType === "direct") {
                     return !!data.teamId;
                 }
-                if (data.sourceType === "winner" || data.sourceType === "loser") {
+                if (
+                    data.sourceType === "winner" || data.sourceType === "loser"
+                ) {
                     return !!data.sourceStageItemId || !!data.sourceMatchId;
                 }
                 return true;
             },
             {
                 message: "Invalid input configuration",
-            }
-        )
+            },
+        ),
     ).min(1),
 }).strict();
 
@@ -43,7 +51,9 @@ export async function assignTeams(req, res) {
             return res.status(404).json({ message: "Stage not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: stage.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -81,13 +91,17 @@ export async function assignTeams(req, res) {
             slot: input.slot,
             sourceType: input.sourceType,
             teamId: input.teamId ? new ObjectId(input.teamId) : undefined,
-            sourceStageItemId: input.sourceStageItemId ? new ObjectId(input.sourceStageItemId) : undefined,
-            sourceMatchId: input.sourceMatchId ? new ObjectId(input.sourceMatchId) : undefined,
+            sourceStageItemId: input.sourceStageItemId
+                ? new ObjectId(input.sourceStageItemId)
+                : undefined,
+            sourceMatchId: input.sourceMatchId
+                ? new ObjectId(input.sourceMatchId)
+                : undefined,
         }));
 
         const { modifiedCount } = await stageItems.updateOne(
             { _id: stageItemId },
-            { $set: { inputs: formattedInputs } }
+            { $set: { inputs: formattedInputs } },
         );
 
         if (modifiedCount === 0) {
@@ -125,7 +139,9 @@ export async function getStageItem(req, res) {
             return res.status(404).json({ message: "Stage not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: stage.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -163,7 +179,9 @@ export async function getStageItemWithTeams(req, res) {
             return res.status(404).json({ message: "Stage not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: stage.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -227,7 +245,9 @@ export async function updateStageItem(req, res) {
             return res.status(404).json({ message: "Stage not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: stage.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -253,7 +273,7 @@ export async function updateStageItem(req, res) {
 
         const { modifiedCount } = await stageItems.updateOne(
             { _id: stageItemId },
-            { $set: updateDoc }
+            { $set: updateDoc },
         );
 
         if (modifiedCount === 0) {
@@ -291,7 +311,9 @@ export async function clearTeamAssignments(req, res) {
             return res.status(404).json({ message: "Stage not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: stage.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -310,7 +332,7 @@ export async function clearTeamAssignments(req, res) {
 
         await stageItems.updateOne(
             { _id: stageItemId },
-            { $set: { inputs: [] } }
+            { $set: { inputs: [] } },
         );
 
         res.status(200).json({

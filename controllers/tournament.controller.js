@@ -1,6 +1,12 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, tournaments, teams, matches, players} from "../config/db.js";
+import {
+    clubMembers,
+    matches,
+    players,
+    teams,
+    tournaments,
+} from "../config/db.js";
 
 const CREATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256),

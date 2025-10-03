@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, tournaments, matches, teams } from "../config/db.js";
+import { clubMembers, matches, teams, tournaments } from "../config/db.js";
 
 /** @type {import("express").RequestHandler<{ matchId: string }>} */
 export async function getMatch(req, res) {
@@ -12,7 +12,9 @@ export async function getMatch(req, res) {
             return res.status(404).json({ message: "Match not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: match.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: match.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -52,15 +54,17 @@ export async function updateMatchWinner(req, res) {
         }
 
         if (
-            match.participant1.toString() !== winnerId.toString() &&
-            match.participant2.toString() !== winnerId.toString()
+            match.participant1.toString() !== winnerId.toString()
+            && match.participant2.toString() !== winnerId.toString()
         ) {
             return res.status(400).json({
                 message: "Winner must be one of the match participants",
             });
         }
 
-        const tournament = await tournaments.findOne({ _id: match.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: match.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -88,11 +92,13 @@ export async function updateMatchWinner(req, res) {
                     winnerId: winnerId,
                     endTime: new Date(),
                 },
-            }
+            },
         );
 
         if (modifiedCount === 0) {
-            return res.status(400).json({ message: "Failed to update match winner" });
+            return res.status(400).json({
+                message: "Failed to update match winner",
+            });
         }
 
         await updateTeamStats(winnerId, loserId, tournament);
@@ -128,7 +134,7 @@ async function updateTeamStats(winnerId, loserId, tournament) {
                 "teamStats.wins": 1,
                 "teamStats.score": rankingConfig.winPoints,
             },
-        }
+        },
     );
 
     await teams.updateOne(
@@ -138,7 +144,7 @@ async function updateTeamStats(winnerId, loserId, tournament) {
                 "teamStats.losses": 1,
                 "teamStats.score": rankingConfig.lossPoints,
             },
-        }
+        },
     );
 }
 
@@ -154,7 +160,9 @@ export async function declareMatchDraw(req, res) {
             return res.status(404).json({ message: "Match not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: match.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: match.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -185,7 +193,7 @@ export async function declareMatchDraw(req, res) {
                     winnerId: null,
                     endTime: new Date(),
                 },
-            }
+            },
         );
 
         await teams.updateOne(
@@ -195,7 +203,7 @@ export async function declareMatchDraw(req, res) {
                     "teamStats.draws": 1,
                     "teamStats.score": rankingConfig.drawPoints,
                 },
-            }
+            },
         );
 
         await teams.updateOne(
@@ -205,7 +213,7 @@ export async function declareMatchDraw(req, res) {
                     "teamStats.draws": 1,
                     "teamStats.score": rankingConfig.drawPoints,
                 },
-            }
+            },
         );
 
         const updatedMatch = await matches.findOne({ _id: matchId });
@@ -232,7 +240,9 @@ export async function scheduleMatch(req, res) {
             return res.status(404).json({ message: "Match not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: match.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: match.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -256,17 +266,19 @@ export async function scheduleMatch(req, res) {
         if (parsed.courtId) {
             updateDoc.court = {
                 _id: new ObjectId(parsed.courtId),
-                name: ""
+                name: "",
             };
         }
 
         const { modifiedCount } = await matches.updateOne(
             { _id: matchId },
-            { $set: updateDoc }
+            { $set: updateDoc },
         );
 
         if (modifiedCount === 0) {
-            return res.status(400).json({ message: "Failed to schedule match" });
+            return res.status(400).json({
+                message: "Failed to schedule match",
+            });
         }
 
         const updatedMatch = await matches.findOne({ _id: matchId });
@@ -295,7 +307,9 @@ export async function deleteMatch(req, res) {
             return res.status(404).json({ message: "Match not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: match.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: match.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }

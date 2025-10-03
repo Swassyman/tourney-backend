@@ -1,9 +1,18 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, clubs, users } from "../config/db.js";
+import {
+    clubMembers,
+    clubs,
+    matches,
+    players,
+    stages,
+    teams,
+    tournaments,
+    users,
+} from "../config/db.js";
 
 const CREATE_SCHEMA = z.object({
-    name: z.string().trim().min(3).max(256), // todo: validate the format for special characters (dont allow)
+    name: z.string().trim().min(3).max(256),
     handle: z.string().trim().min(3).max(64),
 }).strict();
 
@@ -64,6 +73,11 @@ export async function getClub(req, res) {
         const club = await clubs.findOne({
             _id: new ObjectId(req.params.clubId),
         });
+
+        if (club == null) {
+            return res.status(404).json({ message: "Club not found" });
+        }
+
         return res.status(200).json({
             _id: club._id,
             name: club.name,
@@ -86,6 +100,19 @@ export async function getClub(req, res) {
 export async function deleteClub(req, res) {
     try {
         const clubId = new ObjectId(req.params.clubId);
+        const membership = await clubMembers.findOne({
+            clubId,
+            userId: new ObjectId(req.user.id),
+            role: "owner",
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message:
+                    "You don't have permission to delete teams in this tournament",
+            });
+        }
+
         const { deletedCount } = await clubs.deleteOne({ _id: clubId });
 
         if (deletedCount === 0) {
@@ -93,7 +120,18 @@ export async function deleteClub(req, res) {
                 .json({ message: "Could not find the specified club" });
         }
 
-        await clubMembers.deleteMany({ clubId: clubId });
+        const tournamentsToDelete = await tournaments.find({ clubId })
+            .toArray();
+        const tournamentIds = tournamentsToDelete.map(t => t._id);
+
+        if (tournamentIds.length > 0) {
+            await clubMembers.deleteMany({ clubId: clubId });
+            await tournaments.deleteMany({ clubId });
+            await teams.deleteMany({ tournamentId: { $in: tournamentIds } });
+            await players.deleteMany({ tournamentId: { $in: tournamentIds } });
+            await stages.deleteMany({ tournamentId: { $in: tournamentIds } });
+            await matches.deleteMany({ tournamentId: { $in: tournamentIds } });
+        }
 
         res.status(200)
             .json({ message: "Deleted club successfully" });
@@ -219,7 +257,7 @@ export async function getClubMembers(req, res) {
 }
 
 const ADD_MEMBER_SCHEMA = z.object({
-    query: z.string().trim(), // todo: validate the format for special characters (dont allow)
+    query: z.string().trim().regex(/^[a-zA-Z0-9_]+$/),
     role: z.enum(["member", "admin"]),
 }).strict();
 

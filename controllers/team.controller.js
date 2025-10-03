@@ -1,6 +1,12 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, tournaments, teams, matches, players} from "../config/db.js";
+import {
+    clubMembers,
+    matches,
+    players,
+    teams,
+    tournaments,
+} from "../config/db.js";
 
 const CREATE_TEAM_SCHEMA = z.object({
     name: z.string().trim().min(1).max(256),
@@ -26,7 +32,8 @@ export async function createTeam(req, res) {
 
         if (membership == null) {
             return res.status(403).json({
-                message: "You don't have permission to create teams in this tournament",
+                message:
+                    "You don't have permission to create teams in this tournament",
             });
         }
 
@@ -37,7 +44,8 @@ export async function createTeam(req, res) {
 
         if (existingTeam != null) {
             return res.status(400).json({
-                message: "A team with this name already exists in the tournament",
+                message:
+                    "A team with this name already exists in the tournament",
             });
         }
 
@@ -78,7 +86,9 @@ export async function getTeam(req, res) {
             return res.status(404).json({ message: "Team not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: team.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: team.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -116,7 +126,9 @@ export async function updateTeam(req, res) {
             return res.status(404).json({ message: "Team not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: team.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: team.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -143,7 +155,8 @@ export async function updateTeam(req, res) {
 
             if (existingTeam != null) {
                 return res.status(400).json({
-                    message: "A team with this name already exists in the tournament",
+                    message:
+                        "A team with this name already exists in the tournament",
                 });
             }
 
@@ -156,7 +169,7 @@ export async function updateTeam(req, res) {
 
         const { modifiedCount } = await teams.updateOne(
             { _id: teamId },
-            { $set: updateDoc }
+            { $set: updateDoc },
         );
 
         if (modifiedCount === 0) {
@@ -190,7 +203,9 @@ export async function deleteTeam(req, res) {
         }
 
         // Verify access
-        const tournament = await tournaments.findOne({ _id: team.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: team.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -236,7 +251,9 @@ export async function getTeamMatches(req, res) {
             return res.status(404).json({ message: "Team not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: team.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: team.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }
@@ -277,7 +294,9 @@ export async function getTeamPlayers(req, res) {
             return res.status(404).json({ message: "Team not found" });
         }
 
-        const tournament = await tournaments.findOne({ _id: team.tournamentId });
+        const tournament = await tournaments.findOne({
+            _id: team.tournamentId,
+        });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
         }

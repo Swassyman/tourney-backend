@@ -47,7 +47,7 @@ declare global {
         type Team = WithId<
             {
                 tournamentId: ObjectId;
-                name: String;
+                name: string;
                 teamStats: TeamStats;
                 playerIds: ObjectId[];
             }
@@ -60,10 +60,10 @@ declare global {
             draws: number;
         };
 
-        type Player = WithId<{ 
-            tournamentId: ObjectId; 
-            teamId: ObjectId; 
-            name: String 
+        type Player = WithId<{
+            tournamentId: ObjectId;
+            teamId: ObjectId;
+            name: string;
         }>;
 
         type Tournament = WithId<{
@@ -118,7 +118,7 @@ declare global {
         };
 
         // each stage
-        type StageItem = withId<{
+        type StageItem = WithId<{
             name: string;
             teamCount: number;
             inputs: StageInput[];
@@ -132,10 +132,10 @@ declare global {
             sourceMatchId?: ObjectId;
         };
 
-        type Round = WithId<{ 
+        type Round = WithId<{
             stageItemId: ObjectId;
             tournamentId: ObjectId;
-            number: number
+            number: number;
         }>;
 
         type Match = WithId<
@@ -146,9 +146,9 @@ declare global {
                 roundId: ObjectId;
                 startTime?: Date;
                 endTime?: Date;
-                participant1: ObjectId;
-                participant2: ObjectId;
-                court?: Court;
+                participant1?: ObjectId;
+                participant2?: ObjectId;
+                court?: ObjectId;
                 winnerId?: ObjectId;
             }
         >;
