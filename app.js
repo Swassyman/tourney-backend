@@ -9,6 +9,7 @@ import userRouter from "./routes/user.route.js";
 import roundRouter from "./routes/round.routes.js";
 import teamRouter from "./routes/team.routes.js";
 import matchRouter from "./routes/match.routes.js";
+import stageItemRouter from "./routes/stageItem.routes.js";
 
 const PORT = Number(process.env.PORT) || 3912;
 if (isNaN(PORT) || !Number.isInteger(PORT)) {
@@ -58,6 +59,7 @@ app.use("/stages", stageRouter);
 app.use("/rounds", roundRouter)
 app.use("/team", teamRouter);
 app.use("/match", matchRouter);
+app.use("/stageItem", stageItemRouter);
 
 await connectDatabase();
 
