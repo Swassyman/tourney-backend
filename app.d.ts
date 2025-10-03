@@ -60,9 +60,11 @@ declare global {
             draws: number;
         };
 
-        type Player = WithId<
-            { tournamentId: ObjectId; teamid: ObjectId; name: String }
-        >;
+        type Player = WithId<{ 
+            tournamentId: ObjectId; 
+            teamid: ObjectId; 
+            name: String 
+        }>;
 
         type Tournament = WithId<{
             name: string;
@@ -130,9 +132,11 @@ declare global {
             sourceMatchId?: ObjectId;
         };
 
-        type Round = WithId<
-            { stageItemId: ObjectId; tournamentId: ObjectId; number: number }
-        >;
+        type Round = WithId<{ 
+            stageItemId: ObjectId;
+            tournamentId: ObjectId;
+            number: number
+        }>;
 
         type Match = WithId<
             {

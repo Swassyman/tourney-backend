@@ -6,6 +6,7 @@ import clubsRouter from "./routes/clubs.routes.js";
 import stageRouter from "./routes/stage.routes.js";
 import tournamentsRouter from "./routes/tournaments.routes.js";
 import userRouter from "./routes/user.route.js";
+import roundRouter from "./routes/round.routes.js";
 
 const PORT = Number(process.env.PORT) || 3912;
 if (isNaN(PORT) || !Number.isInteger(PORT)) {
@@ -52,6 +53,7 @@ app.use("/club", clubRouter);
 app.use("/clubs", clubsRouter);
 app.use("/tournaments", tournamentsRouter);
 app.use("/stages", stageRouter);
+app.use("/rounds", roundRouter)
 
 await connectDatabase();
 
