@@ -44,6 +44,28 @@ declare global {
             joined_at: Date;
         }>;
 
+        type Team = WithId<
+            {
+                tournamentId: ObjectId;
+                name: string;
+                teamStats: TeamStats;
+                playerIds: ObjectId[];
+            }
+        >;
+
+        type TeamStats = {
+            score: number;
+            wins: number;
+            losses: number;
+            draws: number;
+        };
+
+        type Player = WithId<{
+            tournamentId: ObjectId;
+            teamId: ObjectId;
+            name: string;
+        }>;
+
         type Tournament = WithId<{
             name: string;
             clubId: ObjectId;
@@ -63,6 +85,76 @@ declare global {
             lossPoints: number;
             addScorePoints: boolean;
         };
+
+        // stages of a tournament
+        type Stage = WithId<{
+            tournamentId: ObjectId;
+            name: string;
+            type: "league" | "knockout" | "groups";
+            config: StageConfig;
+            order: number;
+            items: StageItem[];
+        }>;
+
+        // config for each stage
+        type StageConfig = {
+            // League settings
+            teamsCount?: number;
+            rounds?: number;
+
+            // Knockout settings
+            startingRound?:
+                | "final"
+                | "semi"
+                | "quarter"
+                | "roundOf16"
+                | "roundOf32";
+            thirdPlaceMatch?: boolean;
+
+            // Groups settings
+            groupsCount?: number;
+            teamsPerGroup?: number;
+            advancePerGroup?: number;
+        };
+
+        // each stage
+        type StageItem = WithId<{
+            stageId: ObjectId;
+            name: string;
+            teamCount: number;
+            inputs: StageInput[];
+        }>;
+
+        type StageInput = {
+            slot: number; // some matches like A vs B, some teams can be B (this isnt random, its assigned)
+            sourceType: "direct" | "winner" | "loser"; // direct - seeded team, winner/loser - team from a previous match decision
+            teamId?: ObjectId;
+            sourceStageItemId?: ObjectId;
+            sourceMatchId?: ObjectId;
+        };
+
+        type Round = WithId<{
+            stageItemId: ObjectId;
+            tournamentId: ObjectId;
+            number: number;
+        }>;
+
+        type Match = WithId<
+            {
+                tournamentId: ObjectId;
+                stageId: ObjectId;
+                stageItemId: ObjectId;
+                roundId: ObjectId;
+                startTime?: Date;
+                endTime?: Date;
+                participant1?: ObjectId;
+                participant2?: ObjectId;
+                court?: ObjectId;
+                winnerId?: ObjectId;
+            }
+        >;
+
+        type Court = WithId<{ name: string }>;
     }
 
     namespace Express {

@@ -1,6 +1,13 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, tournaments } from "../config/db.js";
+import {
+    clubMembers,
+    matches,
+    players,
+    stages,
+    teams,
+    tournaments,
+} from "../config/db.js";
 
 const CREATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256),
@@ -22,7 +29,6 @@ export async function createTournament(req, res) {
     try {
         const parsed = CREATE_SCHEMA.parse(req.body);
 
-        // Verify user is a member of the club
         const membership = await clubMembers.findOne({
             clubId: new ObjectId(parsed.clubId),
             userId: new ObjectId(req.user.id),
@@ -82,7 +88,6 @@ export async function getTournament(req, res) {
             });
         }
 
-        // Verify user is a member of the club
         const membership = await clubMembers.findOne({
             clubId: tournament.clubId,
             userId: new ObjectId(req.user.id),
@@ -101,35 +106,11 @@ export async function getTournament(req, res) {
     }
 }
 
-/** @type {import("express").RequestHandler<{ clubId: string }>} */
-export async function getClubTournaments(req, res) {
-    try {
-        // Verify user is a member of the club
-        const membership = await clubMembers.findOne({
-            clubId: new ObjectId(req.params.clubId),
-            userId: new ObjectId(req.user.id),
-        });
 
-        if (membership == null) {
-            return res.status(403).json({
-                message: "You are not a member of this club",
-            });
-        }
-
-        const clubTournaments = await tournaments.find({
-            clubId: new ObjectId(req.params.clubId),
-        }).sort({ createdAt: -1 }).toArray();
-
-        res.status(200).json(clubTournaments);
-    } catch (error) {
-        console.error("Error during getting club tournaments:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
 
 const UPDATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256).optional(),
-    startTime: z.string().optional(), // todo: i dont know how to convert to date (they use datetime() but its deprecated)
+    startTime: z.iso.datetime().optional(),
     endTime: z.string().optional(),
     settings: z.object({
         rankingConfig: z.object({
@@ -224,11 +205,10 @@ export async function deleteTournament(req, res) {
             });
         }
 
-        // Verify user has permission (owner or admin)
         const membership = await clubMembers.findOne({
             clubId: tournament.clubId,
             userId: new ObjectId(req.user.id),
-            role: { $in: ["owner", "admin"] }, // can admin delete tournament?
+            role: "owner",
         });
 
         if (membership == null) {
@@ -247,13 +227,150 @@ export async function deleteTournament(req, res) {
             });
         }
 
-        // TODO: Delete related data (teams, players, stages, matches, courts)
+        if (deletedCount > 0) {
+            await Promise.all([
+                teams.deleteMany({ tournamentId: tournament._id }),
+                players.deleteMany({ tournamentId: tournament._id }),
+                matches.deleteMany({ tournamentId: tournament._id }),
+                stages.deleteMany({ tournamentId: tournament._id }),
+            ]);
+        }
 
         res.status(200).json({
             message: "Deleted tournament successfully",
         });
     } catch (error) {
         console.error("Error during deleting tournament:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
+export async function getTournamentTeams(req, res) {
+    try {
+        const tournamentId = new ObjectId(req.params.tournamentId);
+
+        const tournament = await tournaments.findOne({ _id: tournamentId });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const tournamentTeams = await teams.find({
+            tournamentId: tournamentId,
+        }).sort({ "stats.score": -1, "stats.wins": -1 }).toArray();
+
+        res.status(200).json(tournamentTeams);
+    } catch (error) {
+        console.error("Error during getting tournament teams:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
+export async function getTournamentMatches(req, res) {
+    try {
+        const tournamentId = new ObjectId(req.params.tournamentId);
+
+        const tournament = await tournaments.findOne({ _id: tournamentId });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const tournamentMatches = await matches.find({
+            tournamentId: tournamentId,
+        })
+            .sort({ startTime: 1 })
+            .toArray();
+
+        res.status(200).json(tournamentMatches);
+    } catch (error) {
+        console.error("Error during getting tournament matches:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
+export async function getTournamentPlayers(req, res) {
+    try {
+        const tournamentId = new ObjectId(req.params.tournamentId);
+
+        const tournament = await tournaments.findOne({ _id: tournamentId });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const tournamentPlayers = await players.find({
+            tournamentId: tournamentId,
+        }).sort({ name: 1 }).toArray();
+
+        res.status(200).json(tournamentPlayers);
+    } catch (error) {
+        console.error("Error during getting tournament players:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
+export async function getTournamentStages(req, res) {
+    try {
+        const tournamentId = new ObjectId(req.params.tournamentId);
+
+        const tournament = await tournaments.findOne({ _id: tournamentId });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const tournamentStages = await stages.find({
+            tournamentId: tournamentId,
+        }).sort({ order: 1 }).toArray();
+
+        res.status(200).json(tournamentStages);
+    } catch (error) {
+        console.error("Error during getting tournament stages:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
