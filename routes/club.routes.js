@@ -11,9 +11,8 @@ router.post("/", clubController.createClub);
 router.delete("/:clubId", clubController.deleteClub);
 
 router.get("/:clubId/members", clubController.getClubMembers);
-router.post("/:clubId/members", clubController.addClubMember);
+router.post("/:clubId/member", clubController.addClubMember);
 
-router.get("/me/memberships", clubController.getMyClubMemberships);
 router.get("/:clubId/tournaments", clubController.getClubTournaments);
 
 export default router;

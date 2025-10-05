@@ -11,7 +11,9 @@ router.get("/refresh", userController.refresh);
 // after authentication
 router.use(authenticateToken);
 
-router.get("/me", userController.me);
+router.get("/me", userController.getMe);
 router.post("/logout", userController.logout);
+
+router.get("/clubs", userController.getMyClubMemberships);
 
 export default router;

@@ -106,8 +106,6 @@ export async function getTournament(req, res) {
     }
 }
 
-
-
 const UPDATE_SCHEMA = z.object({
     name: z.string().trim().min(3).max(256).optional(),
     startTime: z.iso.datetime().optional(),

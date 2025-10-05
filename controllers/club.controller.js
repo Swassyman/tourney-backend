@@ -149,50 +149,6 @@ export async function deleteClub(req, res) {
     }
 }
 
-/** @type {import("express").RequestHandler} */
-export async function getMyClubMemberships(req, res) {
-    try {
-        const clubMemberships = await clubMembers.aggregate([
-            {
-                $match: {
-                    userId: new ObjectId(req.user.id),
-                },
-            },
-            {
-                $lookup: {
-                    from: "clubs",
-                    localField: "clubId",
-                    foreignField: "_id",
-                    as: "club",
-                },
-            },
-        ]).toArray();
-        console.log(clubMemberships);
-        res.status(200).json(
-            clubMemberships.map(
-                (
-                    /** @type {Tourney.ClubMember & { club: Tourney.Club[] }} */ membership,
-                ) => {
-                    if (membership.club.length !== 1) {
-                        throw new Error(
-                            "supposed to have only one membership for a club",
-                        );
-                    }
-                    return {
-                        _id: membership._id,
-                        role: membership.role,
-                        joined_at: membership.joined_at,
-                        club: membership.club[0],
-                    };
-                },
-            ),
-        );
-    } catch (error) {
-        console.error("Error during getting clubs:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
-
 /** @type {import("express").RequestHandler<{ clubId: string }>} */
 export async function getClubMembers(req, res) {
     try {
@@ -340,12 +296,6 @@ export async function getClubTournaments(req, res) {
             clubId: new ObjectId(req.params.clubId),
         }).sort({ createdAt: -1 }).toArray();
 
-        if (clubTournaments.length === 0) {
-            return res.status(200).json({
-                message: "No tournaments found",
-            });
-        }
-        
         res.status(200).json(clubTournaments);
     } catch (error) {
         console.error("Error during getting club tournaments:", error);

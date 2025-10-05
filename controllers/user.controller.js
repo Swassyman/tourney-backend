@@ -3,7 +3,7 @@ import { jwtVerify } from "jose";
 import { ObjectId } from "mongodb";
 import { fromError } from "zod-validation-error";
 import { z, ZodError } from "zod/v4";
-import { users } from "../config/db.js";
+import { clubMembers, users } from "../config/db.js";
 import {
     generateAccessToken,
     generateRefreshToken,
@@ -203,7 +203,7 @@ export async function logout(req, res) {
 }
 
 /** @type {import("express").RequestHandler} */
-export async function me(req, res, next) {
+export async function getMe(req, res, next) {
     const user = await users.findOne({ _id: new ObjectId(req.user.id) });
     if (user == null) {
         await logout(req, res, next);
@@ -217,4 +217,47 @@ export async function me(req, res, next) {
             handle: user.handle,
             email: user.email,
         });
+}
+
+/** @type {import("express").RequestHandler} */
+export async function getMyClubMemberships(req, res) {
+    try {
+        const clubMemberships = await clubMembers.aggregate([
+            {
+                $match: {
+                    userId: new ObjectId(req.user.id),
+                },
+            },
+            {
+                $lookup: {
+                    from: "clubs",
+                    localField: "clubId",
+                    foreignField: "_id",
+                    as: "club",
+                },
+            },
+        ]).toArray();
+        res.status(200).json(
+            clubMemberships.map(
+                (
+                    /** @type {Tourney.ClubMember & { club: Tourney.Club[] }} */ membership,
+                ) => {
+                    if (membership.club.length !== 1) {
+                        throw new Error(
+                            "supposed to have only one membership for a club",
+                        );
+                    }
+                    return {
+                        _id: membership._id,
+                        role: membership.role,
+                        joined_at: membership.joined_at,
+                        club: membership.club[0],
+                    };
+                },
+            ),
+        );
+    } catch (error) {
+        console.error("Error during getting clubs:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
 }
