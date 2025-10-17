@@ -4,12 +4,10 @@ import { clubMembers, stages, tournaments } from "../config/db.js";
 
 const CREATE_SCHEMA = z.object({
     name: z.string().min(3).max(256),
-    type: z.enum(["league", "knockout", "groups"]),
     order: z.number().int().optional(),
     config: z.object({
         // league
         teamsCount: z.number().int().min(2).optional(),
-        rounds: z.number().int().min(1).optional(),
     }).optional(),
 }).strict();
 
@@ -45,21 +43,20 @@ export async function createStage(req, res) {
 
         // validating config
         const config = parsed.config;
-        if (parsed.type === "league" && !config.teamsCount) {
+        if (!config.teamsCount) {
             return res.status(400).json({
-                message: "teamsCount is required for league stage",
+                message: "Team Count is required for league",
             });
         }
 
         const { insertedId: stageId } = await stages.insertOne({
             tournamentId: tournamentId,
             name: parsed.name,
-            type: parsed.type,
             order: nextOrder,
             config: {
                 // League default
                 teamsCount: config.teamsCount,
-                rounds: config.rounds || 1,
+                rounds: config.teamsCount - 1
             },
             items: [], // will be filled when stage is initialized
         });

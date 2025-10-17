@@ -93,7 +93,6 @@ declare global {
         type Stage = WithId<{
             tournamentId: ObjectId;
             name: string;
-            type: "league" | "knockout" | "groups";
             config: StageConfig;
             order: number;
             items: StageItem[];
@@ -103,37 +102,20 @@ declare global {
         type StageConfig = {
             // League settings
             teamsCount?: number;
-            rounds?: number;
-
-            // Knockout settings
-            startingRound?:
-                | "final"
-                | "semi"
-                | "quarter"
-                | "roundOf16"
-                | "roundOf32";
-            thirdPlaceMatch?: boolean;
-
-            // Groups settings
-            groupsCount?: number;
-            teamsPerGroup?: number;
-            advancePerGroup?: number;
+            rounds?: number
         };
 
         // each stage
         type StageItem = WithId<{
             stageId: ObjectId;
-            name: string;
-            teamCount: number;
+            name?: string;
             inputs: StageInput[];
         }>;
 
+        // table in league (group in groups, division [quarter, semi] in knockout)
         type StageInput = {
-            slot: number; // some matches like A vs B, some teams can be B (this isnt random, its assigned)
-            sourceType: "direct" | "winner" | "loser"; // direct - seeded team, winner/loser - team from a previous match decision
+            slot: number; // order of team in table
             teamId?: ObjectId;
-            sourceStageItemId?: ObjectId;
-            sourceMatchId?: ObjectId;
         };
 
         type Round = WithId<{
@@ -144,9 +126,6 @@ declare global {
 
         type Match = WithId<
             {
-                tournamentId: ObjectId;
-                stageId: ObjectId;
-                stageItemId: ObjectId;
                 roundId: ObjectId;
                 startTime?: Date;
                 endTime?: Date;
