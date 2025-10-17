@@ -153,13 +153,6 @@ export async function assignPlayerToTeam(req, res) {
             playerId: playerId,
         });
 
-        await players.updateOne(
-            { _id: playerId },
-            {
-                $set: { teamId: teamId },
-            },
-        );
-
         res.status(200).json({
             message: "Player assigned to team successfully",
         });

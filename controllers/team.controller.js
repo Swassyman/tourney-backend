@@ -5,6 +5,7 @@ import {
     matches,
     players,
     teams,
+    teamxplayers,
     tournaments,
 } from "../config/db.js";
 
@@ -311,7 +312,7 @@ export async function getTeamPlayers(req, res) {
             });
         }
 
-        const teamPlayers = await players.find({
+        const teamPlayers = await teamxplayers.find({
             teamId: teamId,
         }).sort({ name: 1 }).toArray();
 
