@@ -1,26 +1,36 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, players, teams, tournaments } from "../config/db.js";
+import {
+    clubMembers,
+    clubs,
+    players,
+    teams,
+    teamxplayers,
+    tournaments,
+} from "../config/db.js";
 
-const CREATE_PLAYER_SCHEMA = z.object({
-    name: z.string().trim().min(1).max(256),
-    tournamentId: z.string().trim().min(1),
-    teamId: z.string().trim().min(1),
-}).strict();
+const CREATE_PLAYER_SCHEMA = z
+    .object({
+        name: z.string().trim().min(1).max(256),
+        clubId: z.string().trim().min(1),
+        teamId: z.string().trim().min(1),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler} */
 export async function createPlayer(req, res) {
     try {
         const parsed = CREATE_PLAYER_SCHEMA.parse(req.body);
-        const tournamentId = new ObjectId(parsed.tournamentId);
+        console.log(req.body);
+        const clubId = new ObjectId(parsed.clubId);
 
-        const tournament = await tournaments.findOne({ _id: tournamentId });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+        const club = await clubs.findOne({ _id: clubId });
+        if (club == null) {
+            return res.status(404).json({ message: "Club not found" });
         }
 
         const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
+            clubId: clubId,
             userId: new ObjectId(req.user.id),
             role: { $in: ["owner", "admin"] },
         });
@@ -28,13 +38,12 @@ export async function createPlayer(req, res) {
         if (membership == null) {
             return res.status(403).json({
                 message:
-                    "You don't have permission to create players in this tournament",
+                    "You don't have permission to create players in this club",
             });
         }
 
         const { insertedId: playerId } = await players.insertOne({
-            tournamentId: tournamentId,
-            teamId: null, // Not assigned yet
+            clubId: clubId,
             name: parsed.name,
         });
 
@@ -63,15 +72,15 @@ export async function getPlayer(req, res) {
             return res.status(404).json({ message: "Player not found" });
         }
 
-        const tournament = await tournaments.findOne({
-            _id: player.tournamentId,
+        const club = await clubs.findOne({
+            _id: player.clubId,
         });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+        if (club == null) {
+            return res.status(404).json({ message: "Club not found" });
         }
 
         const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
+            clubId: club._id,
             userId: new ObjectId(req.user.id),
         });
 
@@ -80,15 +89,8 @@ export async function getPlayer(req, res) {
                 message: "You are not a member of this club",
             });
         }
-
-        let playerTeam = null;
-        if (player.teamId) {
-            playerTeam = await teams.findOne({ _id: player.teamId });
-        }
-
         res.status(200).json({
             ...player,
-            team: playerTeam,
         });
     } catch (error) {
         console.error("Error during getting player:", error);
@@ -96,9 +98,11 @@ export async function getPlayer(req, res) {
     }
 }
 
-const ASSIGN_TO_TEAM_SCHEMA = z.object({
-    teamId: z.string().trim().min(1),
-}).strict();
+const ASSIGN_TO_TEAM_SCHEMA = z
+    .object({
+        teamId: z.string().trim().min(1),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler<{ playerId: string }>} */
 export async function assignPlayerToTeam(req, res) {
@@ -117,21 +121,12 @@ export async function assignPlayerToTeam(req, res) {
             return res.status(404).json({ message: "Team not found" });
         }
 
-        if (player.tournamentId.toString() !== team.tournamentId.toString()) {
-            return res.status(400).json({
-                message: "Player and team must belong to the same tournament",
-            });
-        }
-
-        const tournament = await tournaments.findOne({
-            _id: player.tournamentId,
+        const club = await clubs.findOne({
+            _id: player.clubId,
         });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
-        }
 
         const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
+            clubId: club._id,
             userId: new ObjectId(req.user.id),
             role: { $in: ["owner", "admin"] },
         });
@@ -142,21 +137,28 @@ export async function assignPlayerToTeam(req, res) {
             });
         }
 
-        if (player.teamId) {
-            await teams.updateOne(
-                { _id: player.teamId },
-                { $pull: { playerIds: playerId } },
-            );
+        // reassigning players
+        const otherteam = await teamxplayers.findOne({
+            playerId: playerId,
+            teamId: { $ne: teamId },
+        });
+        if (otherteam != null) {
+            // remove from other teams
+            await teamxplayers.deleteOne({
+                playerId: playerId,
+            });
         }
 
-        await teams.updateOne(
-            { _id: teamId },
-            { $addToSet: { playerIds: playerId } },
-        );
+        await teamxplayers.insertOne({
+            teamId: teamId,
+            playerId: playerId,
+        });
 
         await players.updateOne(
             { _id: playerId },
-            { $set: { teamId: teamId } },
+            {
+                $set: { teamId: teamId },
+            },
         );
 
         res.status(200).json({
@@ -186,21 +188,24 @@ export async function removePlayerFromTeam(req, res) {
             return res.status(404).json({ message: "Player not found" });
         }
 
-        if (!player.teamId) {
+        const playerTeam = await teamxplayers.findOne({
+            playerId: playerId
+        })
+        if (!playerTeam) {
             return res.status(400).json({
                 message: "Player is not assigned to any team",
             });
         }
 
-        const tournament = await tournaments.findOne({
-            _id: player.tournamentId,
+        const club = await clubs.findOne({
+            _id: player.clubId,
         });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+        if (club == null) {
+            return res.status(404).json({ message: "Club not found" });
         }
 
         const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
+            clubId: club._id,
             userId: new ObjectId(req.user.id),
             role: { $in: ["owner", "admin"] },
         });
@@ -212,15 +217,9 @@ export async function removePlayerFromTeam(req, res) {
             });
         }
 
-        await teams.updateOne(
-            { _id: player.teamId },
-            { $pull: { playerIds: playerId } },
-        );
-
-        await players.updateOne(
-            { _id: playerId },
-            { $set: { teamId: null } },
-        );
+        await teamxplayers.deleteOne({
+            playerId: playerId,
+        });
 
         res.status(200).json({
             message: "Player removed from team successfully",
@@ -231,9 +230,11 @@ export async function removePlayerFromTeam(req, res) {
     }
 }
 
-const UPDATE_PLAYER_SCHEMA = z.object({
-    name: z.string().trim().min(1).max(256).optional(),
-}).strict();
+const UPDATE_PLAYER_SCHEMA = z
+    .object({
+        name: z.string().trim().min(1).max(256).optional(),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler<{ playerId: string }>} */
 export async function updatePlayer(req, res) {
@@ -246,15 +247,15 @@ export async function updatePlayer(req, res) {
             return res.status(404).json({ message: "Player not found" });
         }
 
-        const tournament = await tournaments.findOne({
-            _id: player.tournamentId,
+        const club = await clubs.findOne({
+            _id: player.clubId,
         });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+        if (club == null) {
+            return res.status(404).json({ message: "Club not found" });
         }
 
         const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
+            clubId: club._id,
             userId: new ObjectId(req.user.id),
             role: { $in: ["owner", "admin"] },
         });
@@ -307,15 +308,15 @@ export async function deletePlayer(req, res) {
             return res.status(404).json({ message: "Player not found" });
         }
 
-        const tournament = await tournaments.findOne({
-            _id: player.tournamentId,
+        const club = await clubs.findOne({
+            _id: player.clubId,
         });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+        if (club == null) {
+            return res.status(404).json({ message: "Club not found" });
         }
 
         const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
+            clubId: club._id,
             userId: new ObjectId(req.user.id),
             role: { $in: ["owner", "admin"] },
         });
@@ -326,11 +327,15 @@ export async function deletePlayer(req, res) {
             });
         }
 
-        if (player.teamId) {
-            await teams.updateOne(
-                { _id: player.teamId },
-                { $pull: { playerIds: playerId } },
-            );
+        // delete player from team when deleting player
+
+        const playerTeam = await teamxplayers.findOne({
+            playerId: playerId
+        })
+        if (playerTeam) {
+            await teamxplayers.deleteOne({
+                playerId: playerId,
+            });
         }
 
         const { deletedCount } = await players.deleteOne({ _id: playerId });

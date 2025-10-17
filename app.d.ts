@@ -49,7 +49,6 @@ declare global {
                 tournamentId: ObjectId;
                 name: string;
                 teamStats: TeamStats;
-                playerIds: ObjectId[];
             }
         >;
 
@@ -61,9 +60,13 @@ declare global {
         };
 
         type Player = WithId<{
-            tournamentId: ObjectId;
-            teamId: ObjectId;
+            clubId: ObjectId;
             name: string;
+        }>;
+
+        type TeamXPlayer = WithId<{
+            teamId: ObjectId;
+            playerId: ObjectId;
         }>;
 
         type Tournament = WithId<{

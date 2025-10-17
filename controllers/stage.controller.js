@@ -10,21 +10,6 @@ const CREATE_SCHEMA = z.object({
         // league
         teamsCount: z.number().int().min(2).optional(),
         rounds: z.number().int().min(1).optional(),
-
-        // knockout
-        startingRound: z.enum([
-            "final",
-            "semi",
-            "quarter",
-            "roundOf32",
-            "roundOf16",
-        ]).optional(),
-        thirdPlaceMatch: z.boolean().optional(),
-
-        // groups
-        groupsCount: z.number().int().min(1).optional(),
-        teamsPerGroup: z.number().int().min(1).optional(),
-        advancePerGroup: z.number().int().min(1).optional(),
     }).optional(),
 }).strict();
 
@@ -66,22 +51,6 @@ export async function createStage(req, res) {
             });
         }
 
-        if (parsed.type === "knockout" && !config.startingRound) {
-            return res.status(400).json({
-                message: "startingRound is required for knockout stage",
-            });
-        }
-
-        if (
-            parsed.type === "groups"
-            && (!config.groupsCount || !config.teamsPerGroup)
-        ) {
-            return res.status(400).json({
-                message:
-                    "groupsCount and teamsPerGroup are required for groups stage",
-            });
-        }
-
         const { insertedId: stageId } = await stages.insertOne({
             tournamentId: tournamentId,
             name: parsed.name,
@@ -91,15 +60,6 @@ export async function createStage(req, res) {
                 // League default
                 teamsCount: config.teamsCount,
                 rounds: config.rounds || 1,
-
-                // Knockout default
-                startingRound: config.startingRound,
-                thirdPlaceMatch: config.thirdPlaceMatch ?? false,
-
-                // Groups default
-                groupsCount: config.groupsCount,
-                teamsPerGroup: config.teamsPerGroup,
-                advancePerGroup: config.advancePerGroup || 2,
             },
             items: [], // will be filled when stage is initialized
         });
@@ -228,7 +188,6 @@ export async function deleteStage(req, res) {
             return res.status(404).json({ message: "Stage not found" });
         }
 
-        // Get tournament and verify access
         const tournament = await tournaments.findOne({
             _id: stage.tournamentId,
         });

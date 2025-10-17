@@ -58,7 +58,6 @@ export async function createTeam(req, res) {
                 draws: 0,
                 losses: 0,
             },
-            playerIds: [],
         });
 
         res.status(201).json({ teamId: teamId });
@@ -230,7 +229,7 @@ export async function deleteTeam(req, res) {
             });
         }
 
-        // todo: Remove team from stage item inputs and matches
+        // todo: Remove team from stage item inputs and matches or make sure everything else is deleted before deleting team (top down approach)
 
         res.status(200).json({
             message: "Deleted team successfully",

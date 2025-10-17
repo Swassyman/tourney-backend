@@ -49,3 +49,6 @@ export const teams = db.collection("teams");
 
 /** @type {import("mongodb").Collection<Tourney.Player>} */
 export const players = db.collection("players");
+
+/** @type {import("mongodb").Collection<Tourney.TeamXPlayer>} */
+export const teamxplayers = db.collection("teamxplayers");
