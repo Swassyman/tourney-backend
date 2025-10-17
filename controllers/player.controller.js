@@ -13,7 +13,6 @@ const CREATE_PLAYER_SCHEMA = z
     .object({
         name: z.string().trim().min(1).max(256),
         clubId: z.string().trim().min(1),
-        teamId: z.string().trim().min(1),
     })
     .strict();
 
@@ -189,8 +188,8 @@ export async function removePlayerFromTeam(req, res) {
         }
 
         const playerTeam = await teamxplayers.findOne({
-            playerId: playerId
-        })
+            playerId: playerId,
+        });
         if (!playerTeam) {
             return res.status(400).json({
                 message: "Player is not assigned to any team",
@@ -330,8 +329,8 @@ export async function deletePlayer(req, res) {
         // delete player from team when deleting player
 
         const playerTeam = await teamxplayers.findOne({
-            playerId: playerId
-        })
+            playerId: playerId,
+        });
         if (playerTeam) {
             await teamxplayers.deleteOne({
                 playerId: playerId,
