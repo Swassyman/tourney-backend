@@ -133,7 +133,7 @@ declare global {
                 participant2?: ObjectId;
                 court?: ObjectId;
                 winnerId?: ObjectId;
-                score: { team1: number; team2: number };
+                score: { team1Score: number; team2Score: number };
             }
         >;
 

@@ -39,8 +39,8 @@ function generateLeagueRounds(teamIds, stageId) {
                     participant2: away,
                     _roundIndex: round,
                     score: {
-                        team1: 0,
-                        team2: 0,
+                        team1Score: 0,
+                        team2Score: 0,
                     },
                 });
             }
@@ -154,8 +154,8 @@ export async function getRounds(req, res) {
         const stageId = new ObjectId(req.params.stageId);
 
         const stage = await stages.findOne({ _id: stageId });
-        if(stage == null) {
-            return res.status(400).json({message: "Stage not found"})
+        if (stage == null) {
+            return res.status(400).json({ message: "Stage not found" });
         }
         const tournament = await tournaments.findOne({
             _id: stage.tournamentId,
@@ -176,7 +176,7 @@ export async function getRounds(req, res) {
         }
 
         const stageRounds = await rounds.find({
-            stageId: stageId
+            stageId: stageId,
         }).sort({ number: 1 }).toArray();
 
         res.status(200).json(stageRounds);
@@ -197,8 +197,8 @@ export async function getRoundMatches(req, res) {
         }
 
         const stage = await stages.findOne({ _id: round.stageId });
-        if(stage == null) {
-            return res.status(400).json({message: "Stage not found"})
+        if (stage == null) {
+            return res.status(400).json({ message: "Stage not found" });
         }
         const tournament = await tournaments.findOne({
             _id: stage.tournamentId,

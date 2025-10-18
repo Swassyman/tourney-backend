@@ -7,9 +7,7 @@ const router = express.Router();
 router.use(authenticateToken); // todo: wrap in a general protected router
 
 router.get("/:matchId", matchController.getMatch);
-router.patch("/:matchId/win", matchController.updateMatchWinner);
-router.post("/:matchId/draw", matchController.declareMatchDraw);
-router.patch("/:matchId/schedule", matchController.scheduleMatch);
-router.delete("/:matchId/delete", matchController.deleteMatch);
+router.patch("/:matchId", matchController.updateMatch);
+router.post("/:matchId/end", matchController.endMatch);
 
 export default router;

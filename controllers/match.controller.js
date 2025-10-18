@@ -1,6 +1,13 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, matches, teams, tournaments } from "../config/db.js";
+import {
+    clubMembers,
+    matches,
+    rounds,
+    stages,
+    teams,
+    tournaments,
+} from "../config/db.js";
 
 /** @type {import("express").RequestHandler<{ matchId: string }>} */
 export async function getMatch(req, res) {
@@ -12,11 +19,27 @@ export async function getMatch(req, res) {
             return res.status(404).json({ message: "Match not found" });
         }
 
+        const round = await rounds.findOne({
+            _id: match.roundId,
+        });
+        if (round == null) {
+            return res.status(404).json({ message: "Round not found" });
+        }
+
+        const stage = await stages.findOne({
+            _id: round.stageId,
+        });
+        if (stage == null) {
+            return res.status(404).json({ message: "Stage not found" });
+        }
+
         const tournament = await tournaments.findOne({
-            _id: match.tournamentId,
+            _id: stage.tournamentId,
         });
         if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+            return res.status(404).json({
+                message: "Tournament not found",
+            });
         }
 
         const membership = await clubMembers.findOne({
@@ -37,71 +60,74 @@ export async function getMatch(req, res) {
     }
 }
 
-const UPDATE_WINNER_SCHEMA = z.object({
-    winnerId: z.string().trim().min(1),
+const UPDATE_MATCH_SCHEMA = z.object({
+    score: z.object({
+        team1: z.number().min(0),
+        team2: z.number().min(0),
+    }),
 }).strict();
 
 /** @type {import("express").RequestHandler<{ matchId: string }>} */
-export async function updateMatchWinner(req, res) {
+export async function updateMatch(req, res) {
     try {
-        const parsed = UPDATE_WINNER_SCHEMA.parse(req.body);
+        const parsed = UPDATE_MATCH_SCHEMA.parse(req.body);
         const matchId = new ObjectId(req.params.matchId);
-        const winnerId = new ObjectId(parsed.winnerId);
 
         const match = await matches.findOne({ _id: matchId });
         if (match == null) {
             return res.status(404).json({ message: "Match not found" });
         }
 
-        if (
-            match.participant1.toString() !== winnerId.toString()
-            && match.participant2.toString() !== winnerId.toString()
-        ) {
-            return res.status(400).json({
-                message: "Winner must be one of the match participants",
-            });
+        const round = await rounds.findOne({
+            _id: match.roundId,
+        });
+        if (round == null) {
+            return res.status(404).json({ message: "Round not found" });
+        }
+
+        const stage = await stages.findOne({
+            _id: round.stageId,
+        });
+        if (stage == null) {
+            return res.status(404).json({ message: "Stage not found" });
         }
 
         const tournament = await tournaments.findOne({
-            _id: match.tournamentId,
+            _id: stage.tournamentId,
         });
         if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+            return res.status(404).json({
+                message: "Tournament not found",
+            });
         }
 
         const membership = await clubMembers.findOne({
             clubId: tournament.clubId,
             userId: new ObjectId(req.user.id),
-            role: { $in: ["owner", "admin"] },
         });
-
         if (membership == null) {
             return res.status(403).json({
-                message: "You don't have permission to update match results",
+                message: "You are not a member of this club",
             });
         }
-
-        const loserId = match.participant1.toString() === winnerId.toString()
-            ? match.participant2
-            : match.participant1;
 
         const { modifiedCount } = await matches.updateOne(
             { _id: matchId },
             {
                 $set: {
-                    winnerId: winnerId,
-                    endTime: new Date(),
+                    score: {
+                        team1Score: parsed.score.team1,
+                        team2Score: parsed.score.team2,
+                    },
                 },
             },
         );
 
         if (modifiedCount === 0) {
             return res.status(400).json({
-                message: "Failed to update match winner",
+                message: "Failed to update match",
             });
         }
-
-        await updateTeamStats(winnerId, loserId, tournament);
 
         const updatedMatch = await matches.findOne({ _id: matchId });
         res.status(200).json(updatedMatch);
@@ -119,232 +145,194 @@ export async function updateMatchWinner(req, res) {
     }
 }
 
-async function updateTeamStats(winnerId, loserId, tournament) {
+async function updateTeamStats(winnerId, loserId, match, tournament) {
     const rankingConfig = tournament.settings?.rankingConfig || {
         winPoints: 3,
         drawPoints: 1,
         lossPoints: 0,
         addScorePoints: false,
     };
-
+    
+    const isWinnerTeam1 = match.participant1.toString() === winnerId.toString();
+    
+    const winnerGoalsFor = isWinnerTeam1 ? match.score.team1Score : match.score.team2Score;
+    const winnerGoalsAgainst = isWinnerTeam1 ? match.score.team2Score : match.score.team1Score;
+    const loserGoalsFor = isWinnerTeam1 ? match.score.team2Score : match.score.team1Score;
+    const loserGoalsAgainst = isWinnerTeam1 ? match.score.team1Score : match.score.team2Score;
+    
     await teams.updateOne(
         { _id: winnerId },
         {
             $inc: {
                 "teamStats.wins": 1,
-                "teamStats.score": rankingConfig.winPoints,
+                "teamStats.points": rankingConfig.winPoints,
+                "teamStats.goalsFor": winnerGoalsFor,
+                "teamStats.goalsAgainst": winnerGoalsAgainst,
             },
         },
     );
-
+    
     await teams.updateOne(
         { _id: loserId },
         {
             $inc: {
                 "teamStats.losses": 1,
-                "teamStats.score": rankingConfig.lossPoints,
+                "teamStats.points": rankingConfig.lossPoints,
+                "teamStats.goalsFor": loserGoalsFor,
+                "teamStats.goalsAgainst": loserGoalsAgainst,
             },
         },
     );
 }
 
-const DECLARE_DRAW_SCHEMA = z.object({}).strict();
-
-/** @type {import("express").RequestHandler<{ matchId: string }>} */
-export async function declareMatchDraw(req, res) {
-    try {
-        const matchId = new ObjectId(req.params.matchId);
-
-        const match = await matches.findOne({ _id: matchId });
-        if (match == null) {
-            return res.status(404).json({ message: "Match not found" });
-        }
-
-        const tournament = await tournaments.findOne({
-            _id: match.tournamentId,
-        });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
-        }
-
-        const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
-            userId: new ObjectId(req.user.id),
-            role: { $in: ["owner", "admin"] },
-        });
-
-        if (membership == null) {
-            return res.status(403).json({
-                message: "You don't have permission to update match results",
-            });
-        }
-
-        const rankingConfig = tournament.settings?.rankingConfig || {
-            winPoints: 3,
-            drawPoints: 1,
-            lossPoints: 0,
-            addScorePoints: false,
-        };
-
-        await matches.updateOne(
-            { _id: matchId },
-            {
-                $set: {
-                    winnerId: null,
-                    endTime: new Date(),
-                },
+async function updateDrawStats(team1Id, team2Id, match, tournament) {
+    const rankingConfig = tournament.settings?.rankingConfig || {
+        winPoints: 3,
+        drawPoints: 1,
+        lossPoints: 0,
+        addScorePoints: false,
+    };
+    
+    await teams.updateOne(
+        { _id: team1Id },
+        {
+            $inc: {
+                "teamStats.draws": 1,
+                "teamStats.points": rankingConfig.drawPoints,
+                "teamStats.goalsFor": match.score.team1Score,
+                "teamStats.goalsAgainst": match.score.team2Score,
             },
-        );
-
-        await teams.updateOne(
-            { _id: match.participant1 },
-            {
-                $inc: {
-                    "teamStats.draws": 1,
-                    "teamStats.score": rankingConfig.drawPoints,
-                },
+        },
+    );
+    
+    await teams.updateOne(
+        { _id: team2Id },
+        {
+            $inc: {
+                "teamStats.draws": 1,
+                "teamStats.points": rankingConfig.drawPoints,
+                "teamStats.goalsFor": match.score.team2Score,
+                "teamStats.goalsAgainst": match.score.team1Score,
             },
-        );
-
-        await teams.updateOne(
-            { _id: match.participant2 },
-            {
-                $inc: {
-                    "teamStats.draws": 1,
-                    "teamStats.score": rankingConfig.drawPoints,
-                },
-            },
-        );
-
-        const updatedMatch = await matches.findOne({ _id: matchId });
-        res.status(200).json(updatedMatch);
-    } catch (error) {
-        console.error("Error during declaring match draw:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
+        },
+    );
 }
 
-const SCHEDULE_MATCH_SCHEMA = z.object({
-    startTime: z.iso.datetime(),
-    courtId: z.string().optional(),
+const END_MATCH_SCHEMA = z.object({
+    winnerId: z.string().trim().min(1).optional().nullable(),
+    score: z.object({
+        team1: z.number().min(0),
+        team2: z.number().min(0)
+    })
 }).strict();
 
 /** @type {import("express").RequestHandler<{ matchId: string }>} */
-export async function scheduleMatch(req, res) {
+export async function endMatch(req, res) {
     try {
-        const parsed = SCHEDULE_MATCH_SCHEMA.parse(req.body);
+        const parsed = END_MATCH_SCHEMA.parse(req.body);
         const matchId = new ObjectId(req.params.matchId);
-
+        const winnerId = parsed.winnerId ? new ObjectId(parsed.winnerId) : null;
+        
         const match = await matches.findOne({ _id: matchId });
         if (match == null) {
             return res.status(404).json({ message: "Match not found" });
         }
-
-        const tournament = await tournaments.findOne({
-            _id: match.tournamentId,
-        });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
+        
+        if (match.endTime) {
+            return res.status(400).json({ message: "Match already ended" });
+        }
+        
+        if (!match.participant1 || !match.participant2) {
+            return res.status(400).json({ message: "Match participants not set" });
         }
 
+        // winner was passed but not one of the match teams
+        if (winnerId !== null) {
+            if (
+                match.participant1.toString() !== winnerId.toString()
+                && match.participant2.toString() !== winnerId.toString()
+            ) {
+                return res.status(400).json({
+                    message: "Winner must be one of the match participants",
+                });
+            }
+        }
+        
+        const round = await rounds.findOne({
+            _id: match.roundId,
+        });
+        if (round == null) {
+            return res.status(404).json({ message: "Round not found" });
+        }
+        
+        const stage = await stages.findOne({
+            _id: round.stageId
+        });
+        if(stage == null) {
+            return res.status(404).json({ message: "Stage not found"});
+        }
+        
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId
+        });
+        if(tournament == null) {
+            return res.status(404).json({
+                message: "Tournament not found"
+            });
+        }
+        
         const membership = await clubMembers.findOne({
             clubId: tournament.clubId,
             userId: new ObjectId(req.user.id),
-            role: { $in: ["owner", "admin"] },
+            role: { $in: ["owner", "admin"]}
         });
-
         if (membership == null) {
             return res.status(403).json({
-                message: "You don't have permission to schedule matches",
+                message: "You do not have the permissions to do this action",
             });
         }
-
-        const updateDoc = {
-            startTime: new Date(parsed.startTime),
-        };
-
-        if (parsed.courtId) {
-            updateDoc.court = {
-                _id: new ObjectId(parsed.courtId),
-                name: "",
-            };
-        }
-
+        
         const { modifiedCount } = await matches.updateOne(
             { _id: matchId },
-            { $set: updateDoc },
+            {
+                $set: {
+                    winnerId: winnerId,
+                    endTime: new Date(),
+                    score: {
+                        team1Score: parsed.score.team1,
+                        team2Score: parsed.score.team2
+                    }
+                },
+            },
         );
-
+        
         if (modifiedCount === 0) {
             return res.status(400).json({
-                message: "Failed to schedule match",
+                message: "Failed to end match",
             });
         }
-
+        
+        if (winnerId !== null) {
+            const loserId = match.participant1.toString() === winnerId.toString()
+                ? match.participant2
+                : match.participant1;
+            await updateTeamStats(winnerId, loserId, match, tournament);
+        } else {
+            await updateDrawStats(match.participant1, match.participant2, match, tournament);
+        }
+        
         const updatedMatch = await matches.findOne({ _id: matchId });
         res.status(200).json(updatedMatch);
+        
     } catch (error) {
         if (error instanceof ZodError) {
             console.log(error.issues);
-            const message = error.issues.length == 0
+            const message = error.issues.length === 0
                 ? "Invalid inputs"
                 : error.issues[0].message;
             return res.status(400).json({ message: message });
         }
-
-        console.error("Error during scheduling match:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
-
-/** @type {import("express").RequestHandler<{ matchId: string }>} */
-export async function deleteMatch(req, res) {
-    try {
-        const matchId = new ObjectId(req.params.matchId);
-
-        const match = await matches.findOne({ _id: matchId });
-        if (match == null) {
-            return res.status(404).json({ message: "Match not found" });
-        }
-
-        const tournament = await tournaments.findOne({
-            _id: match.tournamentId,
-        });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
-        }
-
-        const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
-            userId: new ObjectId(req.user.id),
-            role: { $in: ["owner", "admin"] },
-        });
-
-        if (membership == null) {
-            return res.status(403).json({
-                message: "You don't have permission to delete matches",
-            });
-        }
-
-        if (match.winnerId || match.endTime) {
-            return res.status(400).json({
-                message: "Cannot delete matches with results",
-            });
-        }
-
-        const { deletedCount } = await matches.deleteOne({ _id: matchId });
-
-        if (deletedCount === 0) {
-            return res.status(404).json({
-                message: "Could not find the specified match",
-            });
-        }
-
-        res.status(200).json({
-            message: "Match deleted successfully",
-        });
-    } catch (error) {
-        console.error("Error during deleting match:", error);
+        console.error("Error during ending match:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
