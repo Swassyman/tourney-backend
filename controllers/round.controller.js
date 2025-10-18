@@ -10,19 +10,60 @@ import {
     tournaments,
 } from "../config/db.js";
 
-/** @type {import("express").RequestHandler<{ stageItemId: string }>} */
-export async function generateRounds(req, res) {
-    try {
-        const stageItemId = new ObjectId(req.params.stageItemId);
+function generateLeagueRounds(teamIds, stageId) {
+    const rounds = [];
+    const matches = [];
+    const teams = [...teamIds];
 
-        const stageItem = await stageItems.findOne({ _id: stageItemId });
-        if (stageItem == null) {
-            return res.status(404).json({ message: "Stage item not found" });
+    if (teams.length % 2 !== 0) {
+        teams.push(null);
+    }
+
+    const numTeams = teams.length;
+    const numRounds = numTeams - 1;
+    const matchesPerRound = numTeams / 2;
+
+    for (let round = 0; round < numRounds; round++) {
+        rounds.push({
+            stageId: stageId,
+            number: round + 1,
+        });
+
+        for (let i = 0; i < matchesPerRound; i++) {
+            const home = teams[i];
+            const away = teams[numTeams - 1 - i];
+
+            if (home !== null && away !== null) {
+                matches.push({
+                    stageId: stageId,
+                    participant1: home,
+                    participant2: away,
+                    _roundIndex: round,
+                    score: {
+                        team1: 0,
+                        team2: 0,
+                    },
+                });
+            }
         }
 
-        const stage = await stages.findOne({ _id: stageItem.stageId });
+        teams.splice(1, 0, teams.pop());
+    }
+    return { rounds, matches };
+}
+
+/** @type {import("express").RequestHandler<{ stageId: string }>} */
+export async function generateRounds(req, res) {
+    try {
+        let generatedRounds = [];
+        let generatedMatches = [];
+
+        const stageId = new ObjectId(req.params.stageId);
+        const stage = await stages.findOne({
+            _id: stageId,
+        });
         if (stage == null) {
-            return res.status(404).json({ message: "Stage not found" });
+            return res.status(404).json({ message: "Stage not Found" });
         }
 
         const tournament = await tournaments.findOne({
@@ -37,93 +78,64 @@ export async function generateRounds(req, res) {
             userId: new ObjectId(req.user.id),
             role: { $in: ["owner", "admin"] },
         });
-
         if (membership == null) {
             return res.status(403).json({
-                message: "You don't have permission to generate rounds",
+                message: "You do not have permission to generate rounds",
             });
         }
 
         const existingRounds = await rounds.countDocuments({
-            stage_item_id: stageItemId,
+            stageId: stageId,
         });
-
         if (existingRounds > 0) {
             return res.status(400).json({
-                message: "Rounds already generated for this stage item",
+                message: "Rounds are already generated",
             });
         }
 
-        const teamInputs = stageItem.inputs.filter(
-            input => input.sourceType === "direct" && input.teamId,
-        );
+        const stageItem = await stageItems.findOne({
+            stageId: stageId,
+        });
+        if (stageItem == null) {
+            return res.status(500).json({
+                message: "Table was not generated on stage creation",
+            });
+        }
 
+        const teamInputs = stageItem.inputs.filter(input => input.teamId);
         if (teamInputs.length < 2) {
             return res.status(400).json({
-                message: "Need at least 2 teams to generate matches",
+                message: "2 or more teams needed to generate",
             });
         }
 
         const teamIds = teamInputs.map(input => input.teamId);
+        const result = generateLeagueRounds(teamIds, stageId);
 
-        const teamDocs = await teams.find({
-            _id: { $in: teamIds },
-        }).toArray();
+        generatedRounds = result.rounds;
+        generatedMatches = result.matches;
 
-        const teamMap = new Map(teamDocs.map(t => [t._id.toString(), t.name]));
-
-        let generatedRounds = [];
-        let generatedMatches = [];
-
-        if (stage.type === "league" || stage.type === "groups") {
-            // Round-robin tournament
-            const result = generateRoundRobinSchedule(
-                stageItemId,
-                stage.tournamentId,
-                stage._id,
-                teamIds,
-                teamMap,
-                stage.config.rounds || 1,
-                stageItem.name,
-            );
-            generatedRounds = result.rounds;
-            generatedMatches = result.matches;
-        } else if (stage.type === "knockout") {
-            // Single elimination
-            const result = generateKnockoutMatch(
-                stageItemId,
-                stage.tournamentId,
-                stage._id,
-                teamIds,
-                teamMap,
-                stageItem.name,
-            );
-            generatedRounds = result.rounds;
-            generatedMatches = result.matches;
-        }
-
-        if (generatedRounds.length > 0) {
-            const roundsResult = await rounds.insertMany(generatedRounds);
-            const insertedRoundIds = Object.values(roundsResult.insertedIds);
-
-            generatedMatches.forEach((match) => {
-                const roundIndex = match._roundIndex;
-                match.round_id = insertedRoundIds[roundIndex];
-                delete match._roundIndex;
-            });
-
-            const matchesResult = await matches.insertMany(generatedMatches);
-
-            res.status(201).json({
-                message: "Rounds and matches generated successfully",
-                roundsCreated: generatedRounds.length,
-                matchesCreated: generatedMatches.length,
-            });
-        } else {
-            res.status(400).json({
+        if (generatedRounds.length == 0) {
+            return res.status(400).json({
                 message: "Could not generate rounds",
             });
         }
+
+        const roundsResult = await rounds.insertMany(generatedRounds);
+
+        generatedMatches = generatedMatches.map(match => ({
+            ...match,
+            roundId: roundsResult.insertedIds[match._roundIndex],
+        }));
+
+        generatedMatches.forEach(match => delete match._roundIndex);
+
+        await matches.insertMany(generatedMatches);
+
+        res.status(201).json({
+            rounds: generatedRounds,
+            matches: generatedMatches,
+        });
     } catch (error) {
         if (error instanceof ZodError) {
             const message = error.issues.length === 0
@@ -137,138 +149,6 @@ export async function generateRounds(req, res) {
     }
 }
 
-function generateRoundRobinSchedule(
-    stageItemId,
-    tournamentId,
-    stageId,
-    teamIds,
-    teamMap,
-    numCycles,
-    itemName,
-) {
-    const rounds = [];
-    const matches = [];
-    const teams = [...teamIds];
-    const numTeams = teams.length;
-
-    // If odd number of teams, add a "bye" (null)
-    if (numTeams % 2 !== 0) {
-        teams.push(null);
-    }
-
-    const totalTeams = teams.length;
-    const matchesPerRound = totalTeams / 2;
-    const roundsPerCycle = totalTeams - 1;
-
-    for (let cycle = 0; cycle < numCycles; cycle++) {
-        for (let roundNum = 0; roundNum < roundsPerCycle; roundNum++) {
-            const absoluteRoundNum = cycle * roundsPerCycle + roundNum + 1;
-            const roundName = numCycles > 1
-                ? `${itemName} - Cycle ${cycle + 1}, Round ${roundNum + 1}`
-                : `${itemName} - Round ${roundNum + 1}`;
-
-            rounds.push({
-                stage_item_id: stageItemId,
-                tournament_id: tournamentId,
-                name: roundName,
-                number: absoluteRoundNum,
-            });
-
-            const currentRoundIndex = rounds.length - 1;
-
-            for (let matchIdx = 0; matchIdx < matchesPerRound; matchIdx++) {
-                let home, away;
-
-                if (matchIdx === 0) {
-                    home = teams[0];
-                    away = teams[totalTeams - 1];
-                } else {
-                    home = teams[matchIdx];
-                    away = teams[totalTeams - 1 - matchIdx];
-                }
-
-                if (home !== null && away !== null) {
-                    matches.push({
-                        tournament_id: tournamentId,
-                        stage_id: stageId,
-                        stage_item_id: stageItemId,
-                        round_id: null,
-                        _roundIndex: currentRoundIndex,
-                        created: new Date(),
-                        status: "scheduled",
-                        participant1: {
-                            type: "team",
-                            id: home,
-                            name: teamMap.get(home.toString()) || "",
-                            score: 0,
-                        },
-                        participant2: {
-                            type: "team",
-                            id: away,
-                            name: teamMap.get(away.toString()) || "",
-                            score: 0,
-                        },
-                        updated_at: new Date(),
-                    });
-                }
-            }
-
-            teams.splice(1, 0, teams.pop());
-        }
-    }
-
-    return { rounds, matches };
-}
-function generateKnockoutMatch(
-    stageItemId,
-    tournamentId,
-    stageId,
-    teamIds,
-    teamMap,
-    itemName,
-) {
-    const rounds = [];
-    const matches = [];
-
-    if (teamIds.length < 2) {
-        return { rounds, matches };
-    }
-
-    rounds.push({
-        stage_item_id: stageItemId,
-        tournament_id: tournamentId,
-        name: itemName,
-        number: 1,
-    });
-
-    matches.push({
-        tournamentId: tournamentId,
-        stageId: stageId,
-        stageItemId: stageItemId,
-        roundId: null,
-        startTime: null,
-        endTime: null,
-        participant1: {
-            tournamentId: tournamentId,
-            id: teamIds[0],
-            name: teamMap.get(teamIds[0].toString()) || "",
-            teamStats: {
-                score: 0,
-            },
-        },
-        participant2: {
-            tournamentId: tournamentId,
-            id: teamIds[1],
-            name: teamMap.get(teamIds[1].toString()) || "",
-            teamStats: {
-                score: 0,
-            },
-        },
-    });
-
-    return { rounds, matches };
-}
-
 /** @type {import("express").RequestHandler<{ stageItemId: string }>} */
 export async function getRounds(req, res) {
     try {
@@ -279,8 +159,9 @@ export async function getRounds(req, res) {
             return res.status(404).json({ message: "Stage item not found" });
         }
 
+        const stage = await stages.findOne({ _id: stageItem.stageId });
         const tournament = await tournaments.findOne({
-            _id: stageItem.tournament_id,
+            _id: stage.tournamentId,
         });
         if (tournament == null) {
             return res.status(404).json({ message: "Tournament not found" });
@@ -308,41 +189,41 @@ export async function getRounds(req, res) {
     }
 }
 
-/** @type {import("express").RequestHandler<{ roundId: string }>} */
-export async function getRoundMatches(req, res) {
-    try {
-        const roundId = new ObjectId(req.params.roundId);
+// /** @type {import("express").RequestHandler<{ roundId: string }>} */
+// export async function getRoundMatches(req, res) {
+//     try {
+//         const roundId = new ObjectId(req.params.roundId);
 
-        const round = await rounds.findOne({ _id: roundId });
-        if (round == null) {
-            return res.status(404).json({ message: "Round not found" });
-        }
+//         const round = await rounds.findOne({ _id: roundId });
+//         if (round == null) {
+//             return res.status(404).json({ message: "Round not found" });
+//         }
 
-        const tournament = await tournaments.findOne({
-            _id: round.tournamentId,
-        });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
-        }
+//         // const tournament = await tournaments.findOne({
+//         //     _id: round.tournamentId,
+//         // });
+//         // if (tournament == null) {
+//         //     return res.status(404).json({ message: "Tournament not found" });
+//         // }
 
-        const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
-            userId: new ObjectId(req.user.id),
-        });
+//         const membership = await clubMembers.findOne({
+//             clubId: tournament.clubId,
+//             userId: new ObjectId(req.user.id),
+//         });
 
-        if (membership == null) {
-            return res.status(403).json({
-                message: "You are not a member of this club",
-            });
-        }
+//         if (membership == null) {
+//             return res.status(403).json({
+//                 message: "You are not a member of this club",
+//             });
+//         }
 
-        const roundMatches = await matches.find({
-            round_id: roundId,
-        }).toArray();
+//         const roundMatches = await matches.find({
+//             round_id: roundId,
+//         }).toArray();
 
-        res.status(200).json(roundMatches);
-    } catch (error) {
-        console.error("Error during getting round matches:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
+//         res.status(200).json(roundMatches);
+//     } catch (error) {
+//         console.error("Error during getting round matches:", error);
+//         return res.status(500).json({ message: "Internal server error" });
+//     }
+// }

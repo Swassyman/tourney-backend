@@ -121,7 +121,6 @@ declare global {
 
         type Round = WithId<{
             stageId: ObjectId;
-            tournamentId: ObjectId;
             number: number;
         }>;
 

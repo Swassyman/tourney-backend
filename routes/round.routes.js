@@ -6,8 +6,8 @@ const router = express.Router();
 
 router.use(authenticateToken); // todo: wrap in a general protected router
 
-router.post("/create", roundController.generateRounds);
+router.post("/:stageId/create", roundController.generateRounds);
 router.get("/:stageItemId", roundController.getRounds);
-router.get("/:roundId/matches", roundController.getRoundMatches);
+// router.get("/:roundId/matches", roundController.getRoundMatches);
 
 export default router;

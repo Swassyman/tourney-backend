@@ -138,7 +138,7 @@ const UPDATE_STAGE_ITEM_SCHEMA = z.object({
     name: z.string().trim().min(1).max(256).optional(),
 }).strict();
 
-//todo: yet to test out (hoping its not detrimental)
+// todo: yet to test out (hoping its not detrimental)
 /** @type {import("express").RequestHandler<{ stageItemId: string }>} */
 export async function updateStageItem(req, res) {
     try {
