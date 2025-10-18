@@ -8,37 +8,10 @@ import {
     tournaments,
 } from "../config/db.js";
 
-const ASSIGN_TEAMS_SCHEMA = z.object({
-    inputs: z.array(
-        z.object({
-            slot: z.number().int().min(1),
-            sourceType: z.enum(["direct", "winner", "loser"]),
-            teamId: z.string().optional(),
-            sourceStageItemId: z.string().optional(),
-            sourceMatchId: z.string().optional(),
-        }).refine(
-            (data) => {
-                if (data.sourceType === "direct") {
-                    return !!data.teamId;
-                }
-                if (
-                    data.sourceType === "winner" || data.sourceType === "loser"
-                ) {
-                    return !!data.sourceStageItemId || !!data.sourceMatchId;
-                }
-                return true;
-            },
-            {
-                message: "Invalid input configuration",
-            },
-        ),
-    ).min(1),
-}).strict();
-
+// assign teams to table
 /** @type {import("express").RequestHandler<{ stageItemId: string }>} */
 export async function assignTeams(req, res) {
     try {
-        const parsed = ASSIGN_TEAMS_SCHEMA.parse(req.body);
         const stageItemId = new ObjectId(req.params.stageItemId);
 
         const stageItem = await stageItems.findOne({ _id: stageItemId });
@@ -70,9 +43,13 @@ export async function assignTeams(req, res) {
             });
         }
 
-        const teamIds = parsed.inputs
-            .filter(input => input.teamId)
-            .map(input => new ObjectId(input.teamId));
+        const teamsList = await teams.find({
+            tournamentId: tournament._id,
+        }).toArray();
+
+        const teamIds = teamsList
+            .filter(team => team._id)
+            .map(team => new ObjectId(team._id));
 
         if (teamIds.length > 0) {
             const existingTeams = await teams.find({
@@ -87,16 +64,10 @@ export async function assignTeams(req, res) {
             }
         }
 
-        const formattedInputs = parsed.inputs.map(input => ({
-            slot: input.slot,
-            sourceType: input.sourceType,
-            teamId: input.teamId ? new ObjectId(input.teamId) : undefined,
-            sourceStageItemId: input.sourceStageItemId
-                ? new ObjectId(input.sourceStageItemId)
-                : undefined,
-            sourceMatchId: input.sourceMatchId
-                ? new ObjectId(input.sourceMatchId)
-                : undefined,
+        const formattedInputs = teamsList.map(team => ({
+            teamId: team._id ? new ObjectId(team._id) : undefined,
+            name: team.name,
+            teamStats: team.teamStats,
         }));
 
         const { modifiedCount } = await stageItems.updateOne(
@@ -163,68 +134,6 @@ export async function getStageItem(req, res) {
         return res.status(500).json({ message: "Internal server error" });
     }
 }
-
-/** @type {import("express").RequestHandler<{ stageItemId: string }>} */
-export async function getStageItemWithTeams(req, res) {
-    try {
-        const stageItemId = new ObjectId(req.params.stageItemId);
-
-        const stageItem = await stageItems.findOne({ _id: stageItemId });
-        if (stageItem == null) {
-            return res.status(404).json({ message: "Stage item not found" });
-        }
-
-        const stage = await stages.findOne({ _id: stageItem.stageId });
-        if (stage == null) {
-            return res.status(404).json({ message: "Stage not found" });
-        }
-
-        const tournament = await tournaments.findOne({
-            _id: stage.tournamentId,
-        });
-        if (tournament == null) {
-            return res.status(404).json({ message: "Tournament not found" });
-        }
-
-        const membership = await clubMembers.findOne({
-            clubId: tournament.clubId,
-            userId: new ObjectId(req.user.id),
-        });
-
-        if (membership == null) {
-            return res.status(403).json({
-                message: "You are not a member of this club",
-            });
-        }
-
-        const teamIds = stageItem.inputs
-            .filter(input => input.teamId)
-            .map(input => input.teamId);
-
-        let teamDetails = [];
-        if (teamIds.length > 0) {
-            teamDetails = await teams.find({
-                _id: { $in: teamIds },
-            }).toArray();
-        }
-
-        const teamMap = new Map(teamDetails.map(t => [t._id.toString(), t]));
-
-        const enhancedInputs = stageItem.inputs.map(input => ({
-            ...input,
-            team: input.teamId ? teamMap.get(input.teamId.toString()) : null,
-        }));
-
-        res.status(200).json({
-            ...stageItem,
-            inputs: enhancedInputs,
-        });
-    } catch (error) {
-        console.error("Error during getting stage item with teams:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
-
 const UPDATE_STAGE_ITEM_SCHEMA = z.object({
     name: z.string().trim().min(1).max(256).optional(),
 }).strict();

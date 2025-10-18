@@ -53,10 +53,12 @@ declare global {
         >;
 
         type TeamStats = {
-            score: number;
+            points: number;
             wins: number;
             losses: number;
             draws: number;
+            goalsFor: number;
+            goalsAgainst: number;
         };
 
         type Player = WithId<{
@@ -76,6 +78,7 @@ declare global {
             startTime: Date | null;
             endTime: Date | null;
             settings: TournamentSettings;
+            winnerId?: ObjectId;
         }>;
 
         type TournamentSettings = {
@@ -95,31 +98,29 @@ declare global {
             name: string;
             config: StageConfig;
             order: number;
-            items: StageItem[];
         }>;
 
         // config for each stage
         type StageConfig = {
             // League settings
             teamsCount?: number;
-            rounds?: number
+            rounds?: number;
         };
 
         // each stage
         type StageItem = WithId<{
             stageId: ObjectId;
             name?: string;
-            inputs: StageInput[];
+            inputs: StageInput[]; // teams are assigned on stage creation
         }>;
 
         // table in league (group in groups, division [quarter, semi] in knockout)
         type StageInput = {
-            slot: number; // order of team in table
             teamId?: ObjectId;
         };
 
         type Round = WithId<{
-            stageItemId: ObjectId;
+            stageId: ObjectId;
             tournamentId: ObjectId;
             number: number;
         }>;
@@ -133,6 +134,7 @@ declare global {
                 participant2?: ObjectId;
                 court?: ObjectId;
                 winnerId?: ObjectId;
+                score: { team1: number; team2: number };
             }
         >;
 

@@ -1,15 +1,19 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, stages, tournaments } from "../config/db.js";
+import { clubMembers, stageItems, stages, tournaments } from "../config/db.js";
 
-const CREATE_SCHEMA = z.object({
-    name: z.string().min(3).max(256),
-    order: z.number().int().optional(),
-    config: z.object({
-        // league
-        teamsCount: z.number().int().min(2).optional(),
-    }).optional(),
-}).strict();
+const CREATE_SCHEMA = z
+    .object({
+        name: z.string().min(3).max(256),
+        order: z.number().int().optional(),
+        config: z
+            .object({
+                // league
+                teamsCount: z.number().int().min(2).optional(),
+            })
+            .optional(),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler<{ tournamentId: string }>} **/
 export async function createStage(req, res) {
@@ -35,8 +39,11 @@ export async function createStage(req, res) {
             });
         }
 
-        const existingStages = await stages.find({ tournamentId: tournamentId })
-            .sort({ order: -1 }).limit(1).toArray();
+        const existingStages = await stages
+            .find({ tournamentId: tournamentId })
+            .sort({ order: -1 })
+            .limit(1)
+            .toArray();
         const nextOrder = existingStages.length > 0
             ? existingStages[0].order + 1
             : 0;
@@ -56,11 +63,19 @@ export async function createStage(req, res) {
             config: {
                 // League default
                 teamsCount: config.teamsCount,
-                rounds: config.teamsCount - 1
+                rounds: config.teamsCount % 2 == 0
+                    ? config.teamsCount - 1
+                    : config.teamsCount, // n - odd, n-1 - even
             },
-            items: [], // will be filled when stage is initialized
         });
-        res.status(201).json({ stageId: stageId });
+
+        const { insertedId: stageItemId } = await stageItems.insertOne({
+            stageId: stageId,
+            name: "League",
+            inputs: [], // will get filled on team assignment
+        });
+
+        res.status(201).json({ stageId: stageId, stageItemId: stageItemId });
     } catch (error) {
         if (error instanceof ZodError) {
             console.log(error.issues);
@@ -76,7 +91,8 @@ export async function createStage(req, res) {
 }
 
 /** @type {import("express").RequestHandler<{ stageId: string }>} */
-export async function getStage(req, res) { // todo: some bug that cant successfully return a stage
+export async function getStage(req, res) {
+    // todo: some bug that cant successfully return a stage
     try {
         const stageId = new ObjectId(req.params.stageId);
 
@@ -110,10 +126,18 @@ export async function getStage(req, res) { // todo: some bug that cant successfu
     }
 }
 
-const UPDATE_STAGE_SCHEMA = z.object({
-    name: z.string().trim().min(1).max(256).optional(),
-    order: z.number().int().min(0).optional(),
-}).strict();
+const UPDATE_STAGE_SCHEMA = z
+    .object({
+        name: z.string().trim().min(1).max(256).optional(),
+        order: z.number().int().min(0).optional(),
+        config: z
+            .object({
+                // league
+                teamsCount: z.number().int().min(2).optional(),
+            })
+            .optional(),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler<{ stageId: string }>} */
 export async function updateStage(req, res) {
@@ -146,9 +170,11 @@ export async function updateStage(req, res) {
             });
         }
 
+        // todo: update rounds with change in teamcount
         const updateDoc = {};
         if (parsed.name) updateDoc.name = parsed.name;
         if (parsed.order !== undefined) updateDoc.order = parsed.order;
+        if (parsed.config) updateDoc.config = parsed.config;
 
         const { modifiedCount } = await stages.updateOne(
             { _id: stageId },

@@ -54,10 +54,12 @@ export async function createTeam(req, res) {
             tournamentId: tournamentId,
             name: parsed.name,
             teamStats: {
-                score: 0,
+                points: 0,
                 wins: 0,
                 draws: 0,
                 losses: 0,
+                goalsFor: 0,
+                goalsAgainst: 0,
             },
         });
 
