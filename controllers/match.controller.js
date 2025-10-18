@@ -152,14 +152,22 @@ async function updateTeamStats(winnerId, loserId, match, tournament) {
         lossPoints: 0,
         addScorePoints: false,
     };
-    
+
     const isWinnerTeam1 = match.participant1.toString() === winnerId.toString();
-    
-    const winnerGoalsFor = isWinnerTeam1 ? match.score.team1Score : match.score.team2Score;
-    const winnerGoalsAgainst = isWinnerTeam1 ? match.score.team2Score : match.score.team1Score;
-    const loserGoalsFor = isWinnerTeam1 ? match.score.team2Score : match.score.team1Score;
-    const loserGoalsAgainst = isWinnerTeam1 ? match.score.team1Score : match.score.team2Score;
-    
+
+    const winnerGoalsFor = isWinnerTeam1
+        ? match.score.team1Score
+        : match.score.team2Score;
+    const winnerGoalsAgainst = isWinnerTeam1
+        ? match.score.team2Score
+        : match.score.team1Score;
+    const loserGoalsFor = isWinnerTeam1
+        ? match.score.team2Score
+        : match.score.team1Score;
+    const loserGoalsAgainst = isWinnerTeam1
+        ? match.score.team1Score
+        : match.score.team2Score;
+
     await teams.updateOne(
         { _id: winnerId },
         {
@@ -171,7 +179,7 @@ async function updateTeamStats(winnerId, loserId, match, tournament) {
             },
         },
     );
-    
+
     await teams.updateOne(
         { _id: loserId },
         {
@@ -192,7 +200,7 @@ async function updateDrawStats(team1Id, team2Id, match, tournament) {
         lossPoints: 0,
         addScorePoints: false,
     };
-    
+
     await teams.updateOne(
         { _id: team1Id },
         {
@@ -204,7 +212,7 @@ async function updateDrawStats(team1Id, team2Id, match, tournament) {
             },
         },
     );
-    
+
     await teams.updateOne(
         { _id: team2Id },
         {
@@ -222,8 +230,8 @@ const END_MATCH_SCHEMA = z.object({
     winnerId: z.string().trim().min(1).optional().nullable(),
     score: z.object({
         team1: z.number().min(0),
-        team2: z.number().min(0)
-    })
+        team2: z.number().min(0),
+    }),
 }).strict();
 
 /** @type {import("express").RequestHandler<{ matchId: string }>} */
@@ -232,18 +240,20 @@ export async function endMatch(req, res) {
         const parsed = END_MATCH_SCHEMA.parse(req.body);
         const matchId = new ObjectId(req.params.matchId);
         const winnerId = parsed.winnerId ? new ObjectId(parsed.winnerId) : null;
-        
+
         const match = await matches.findOne({ _id: matchId });
         if (match == null) {
             return res.status(404).json({ message: "Match not found" });
         }
-        
+
         if (match.endTime) {
             return res.status(400).json({ message: "Match already ended" });
         }
-        
+
         if (!match.participant1 || !match.participant2) {
-            return res.status(400).json({ message: "Match participants not set" });
+            return res.status(400).json({
+                message: "Match participants not set",
+            });
         }
 
         // winner was passed but not one of the match teams
@@ -257,41 +267,41 @@ export async function endMatch(req, res) {
                 });
             }
         }
-        
+
         const round = await rounds.findOne({
             _id: match.roundId,
         });
         if (round == null) {
             return res.status(404).json({ message: "Round not found" });
         }
-        
+
         const stage = await stages.findOne({
-            _id: round.stageId
+            _id: round.stageId,
         });
-        if(stage == null) {
-            return res.status(404).json({ message: "Stage not found"});
+        if (stage == null) {
+            return res.status(404).json({ message: "Stage not found" });
         }
-        
+
         const tournament = await tournaments.findOne({
-            _id: stage.tournamentId
+            _id: stage.tournamentId,
         });
-        if(tournament == null) {
+        if (tournament == null) {
             return res.status(404).json({
-                message: "Tournament not found"
+                message: "Tournament not found",
             });
         }
-        
+
         const membership = await clubMembers.findOne({
             clubId: tournament.clubId,
             userId: new ObjectId(req.user.id),
-            role: { $in: ["owner", "admin"]}
+            role: { $in: ["owner", "admin"] },
         });
         if (membership == null) {
             return res.status(403).json({
                 message: "You do not have the permissions to do this action",
             });
         }
-        
+
         const { modifiedCount } = await matches.updateOne(
             { _id: matchId },
             {
@@ -300,30 +310,35 @@ export async function endMatch(req, res) {
                     endTime: new Date(),
                     score: {
                         team1Score: parsed.score.team1,
-                        team2Score: parsed.score.team2
-                    }
+                        team2Score: parsed.score.team2,
+                    },
                 },
             },
         );
-        
+
         if (modifiedCount === 0) {
             return res.status(400).json({
                 message: "Failed to end match",
             });
         }
-        
+
         if (winnerId !== null) {
-            const loserId = match.participant1.toString() === winnerId.toString()
-                ? match.participant2
-                : match.participant1;
+            const loserId =
+                match.participant1.toString() === winnerId.toString()
+                    ? match.participant2
+                    : match.participant1;
             await updateTeamStats(winnerId, loserId, match, tournament);
         } else {
-            await updateDrawStats(match.participant1, match.participant2, match, tournament);
+            await updateDrawStats(
+                match.participant1,
+                match.participant2,
+                match,
+                tournament,
+            );
         }
-        
+
         const updatedMatch = await matches.findOne({ _id: matchId });
         res.status(200).json(updatedMatch);
-        
     } catch (error) {
         if (error instanceof ZodError) {
             console.log(error.issues);
