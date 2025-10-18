@@ -35,7 +35,6 @@ function generateLeagueRounds(teamIds, stageId) {
 
             if (home !== null && away !== null) {
                 matches.push({
-                    stageId: stageId,
                     participant1: home,
                     participant2: away,
                     _roundIndex: round,
@@ -149,17 +148,15 @@ export async function generateRounds(req, res) {
     }
 }
 
-/** @type {import("express").RequestHandler<{ stageItemId: string }>} */
+/** @type {import("express").RequestHandler<{ stageId: string }>} */
 export async function getRounds(req, res) {
     try {
-        const stageItemId = new ObjectId(req.params.stageItemId);
+        const stageId = new ObjectId(req.params.stageId);
 
-        const stageItem = await stageItems.findOne({ _id: stageItemId });
-        if (stageItem == null) {
-            return res.status(404).json({ message: "Stage item not found" });
+        const stage = await stages.findOne({ _id: stageId });
+        if(stage == null) {
+            return res.status(400).json({message: "Stage not found"})
         }
-
-        const stage = await stages.findOne({ _id: stageItem.stageId });
         const tournament = await tournaments.findOne({
             _id: stage.tournamentId,
         });
@@ -179,7 +176,7 @@ export async function getRounds(req, res) {
         }
 
         const stageRounds = await rounds.find({
-            stage_item_id: stageItemId,
+            stageId: stageId
         }).sort({ number: 1 }).toArray();
 
         res.status(200).json(stageRounds);
@@ -189,41 +186,45 @@ export async function getRounds(req, res) {
     }
 }
 
-// /** @type {import("express").RequestHandler<{ roundId: string }>} */
-// export async function getRoundMatches(req, res) {
-//     try {
-//         const roundId = new ObjectId(req.params.roundId);
+/** @type {import("express").RequestHandler<{ roundId: string }>} */
+export async function getRoundMatches(req, res) {
+    try {
+        const roundId = new ObjectId(req.params.roundId);
 
-//         const round = await rounds.findOne({ _id: roundId });
-//         if (round == null) {
-//             return res.status(404).json({ message: "Round not found" });
-//         }
+        const round = await rounds.findOne({ _id: roundId });
+        if (round == null) {
+            return res.status(404).json({ message: "Round not found" });
+        }
 
-//         // const tournament = await tournaments.findOne({
-//         //     _id: round.tournamentId,
-//         // });
-//         // if (tournament == null) {
-//         //     return res.status(404).json({ message: "Tournament not found" });
-//         // }
+        const stage = await stages.findOne({ _id: round.stageId });
+        if(stage == null) {
+            return res.status(400).json({message: "Stage not found"})
+        }
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
 
-//         const membership = await clubMembers.findOne({
-//             clubId: tournament.clubId,
-//             userId: new ObjectId(req.user.id),
-//         });
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
 
-//         if (membership == null) {
-//             return res.status(403).json({
-//                 message: "You are not a member of this club",
-//             });
-//         }
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
 
-//         const roundMatches = await matches.find({
-//             round_id: roundId,
-//         }).toArray();
+        const roundMatches = await matches.find({
+            roundId: roundId,
+        }).toArray();
 
-//         res.status(200).json(roundMatches);
-//     } catch (error) {
-//         console.error("Error during getting round matches:", error);
-//         return res.status(500).json({ message: "Internal server error" });
-//     }
-// }
+        res.status(200).json(roundMatches);
+    } catch (error) {
+        console.error("Error during getting round matches:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
