@@ -230,16 +230,14 @@ export async function deleteStage(req, res) {
             });
         }
 
-        const { deletedCount } = await stages.deleteOne({ _id: stageId });
+        await stageItems.deleteMany({ stageId: stageId})
+        const { deletedCount: deletedStageCount } = await stages.deleteOne({ _id: stageId });
 
-        if (deletedCount === 0) {
+        if (deletedStageCount === 0) {
             return res.status(404).json({
                 message: "Could not find the specified stage",
             });
         }
-
-        // todo: Delete related matches and update team/player stats
-
         res.status(200).json({ message: "Deleted stage successfully" });
     } catch (error) {
         console.error("Error during deleting stage:", error);
