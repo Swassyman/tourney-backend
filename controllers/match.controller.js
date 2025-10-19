@@ -239,7 +239,6 @@ export async function endMatch(req, res) {
     try {
         const parsed = END_MATCH_SCHEMA.parse(req.body);
         const matchId = new ObjectId(req.params.matchId);
-        const winnerId = parsed.winnerId ? new ObjectId(parsed.winnerId) : null;
 
         const match = await matches.findOne({ _id: matchId });
         if (match == null) {
@@ -255,17 +254,15 @@ export async function endMatch(req, res) {
                 message: "Match participants not set",
             });
         }
+        
+        let winnerId = null;
 
-        // winner was passed but not one of the match teams
-        if (winnerId !== null) {
-            if (
-                match.participant1.toString() !== winnerId.toString()
-                && match.participant2.toString() !== winnerId.toString()
-            ) {
-                return res.status(400).json({
-                    message: "Winner must be one of the match participants",
-                });
-            }
+        if(parsed.score.team1 > parsed.score.team2){
+            winnerId = match.participant1;
+        } else if( parsed.score.team2 > parsed.score.team1){
+            winnerId = match.participant2;
+        } else {
+            winnerId = null;
         }
 
         const round = await rounds.findOne({
