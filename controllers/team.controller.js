@@ -9,10 +9,12 @@ import {
     tournaments,
 } from "../config/db.js";
 
-const CREATE_TEAM_SCHEMA = z.object({
-    name: z.string().trim().min(1).max(256),
-    tournamentId: z.string().trim().min(1),
-}).strict();
+const CREATE_TEAM_SCHEMA = z
+    .object({
+        name: z.string().trim().min(1).max(256),
+        tournamentId: z.string().trim().min(1),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler} */
 export async function createTeam(req, res) {
@@ -113,9 +115,11 @@ export async function getTeam(req, res) {
     }
 }
 
-const UPDATE_TEAM_SCHEMA = z.object({
-    name: z.string().trim().min(1).max(256).optional(),
-}).strict();
+const UPDATE_TEAM_SCHEMA = z
+    .object({
+        name: z.string().trim().min(1).max(256).optional(),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler<{ teamId: string }>} */
 export async function updateTeam(req, res) {
@@ -271,13 +275,13 @@ export async function getTeamMatches(req, res) {
             });
         }
 
-        const teamMatches = await matches.find({
-            tournamentId: team.tournamentId,
-            $or: [
-                { participant1: teamId },
-                { participant2: teamId },
-            ],
-        }).sort({ startTime: 1 }).toArray();
+        const teamMatches = await matches
+            .find({
+                tournamentId: team.tournamentId,
+                $or: [{ participant1: teamId }, { participant2: teamId }],
+            })
+            .sort({ startTime: 1 })
+            .toArray();
 
         res.status(200).json(teamMatches);
     } catch (error) {
@@ -314,11 +318,54 @@ export async function getTeamPlayers(req, res) {
             });
         }
 
-        const teamPlayers = await teamxplayers.find({
-            teamId: teamId,
-        }).sort({ name: 1 }).toArray();
+        const teamPlayers = await teamxplayers
+            .find({
+                teamId: teamId,
+            })
+            .sort({ name: 1 })
+            .toArray();
 
         res.status(200).json(teamPlayers);
+    } catch (error) {
+        console.error("Error during getting team players:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ teamId: string }>} */
+export async function getTeamStats(req, res) {
+    try {
+        const teamId = new ObjectId(req.params.teamId);
+
+        const team = await teams.findOne({ _id: teamId });
+        if (team == null) {
+            return res.status(404).json({ message: "Team not found" });
+        }
+
+        const tournament = await tournaments.findOne({
+            _id: team.tournamentId,
+        });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const teamStats = await teams.findOne(
+            { _id: new ObjectId(teamId) },
+            { projection: { teamStats: 1, _id: 0 } },
+        );
+
+        res.status(200).json(teamStats);
     } catch (error) {
         console.error("Error during getting team players:", error);
         return res.status(500).json({ message: "Internal server error" });

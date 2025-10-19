@@ -67,7 +67,6 @@ export async function assignTeams(req, res) {
         const formattedInputs = teamsList.map(team => ({
             teamId: team._id ? new ObjectId(team._id) : undefined,
             name: team.name,
-            teamStats: team.teamStats,
         }));
 
         const { modifiedCount } = await stageItems.updateOne(
