@@ -172,6 +172,7 @@ async function updateTeamStats(winnerId, loserId, match, tournament) {
         { _id: winnerId },
         {
             $inc: {
+                "teamStats.matchesPlayed": 1,
                 "teamStats.wins": 1,
                 "teamStats.points": rankingConfig.winPoints,
                 "teamStats.goalsFor": winnerGoalsFor,
@@ -184,6 +185,7 @@ async function updateTeamStats(winnerId, loserId, match, tournament) {
         { _id: loserId },
         {
             $inc: {
+                "teamStats.matchesPlayed": 1,
                 "teamStats.losses": 1,
                 "teamStats.points": rankingConfig.lossPoints,
                 "teamStats.goalsFor": loserGoalsFor,
@@ -205,6 +207,7 @@ async function updateDrawStats(team1Id, team2Id, match, tournament) {
         { _id: team1Id },
         {
             $inc: {
+                "teamStats.matchesPlayed": 1,
                 "teamStats.draws": 1,
                 "teamStats.points": rankingConfig.drawPoints,
                 "teamStats.goalsFor": match.score.team1Score,
@@ -217,6 +220,7 @@ async function updateDrawStats(team1Id, team2Id, match, tournament) {
         { _id: team2Id },
         {
             $inc: {
+                "teamStats.matchesPlayed": 1,
                 "teamStats.draws": 1,
                 "teamStats.points": rankingConfig.drawPoints,
                 "teamStats.goalsFor": match.score.team2Score,

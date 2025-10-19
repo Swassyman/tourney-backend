@@ -53,6 +53,7 @@ declare global {
         >;
 
         type TeamStats = {
+            matchesPlayed: number;
             points: number;
             wins: number;
             losses: number;
