@@ -230,8 +230,10 @@ export async function deleteStage(req, res) {
             });
         }
 
-        await stageItems.deleteMany({ stageId: stageId})
-        const { deletedCount: deletedStageCount } = await stages.deleteOne({ _id: stageId });
+        await stageItems.deleteMany({ stageId: stageId });
+        const { deletedCount: deletedStageCount } = await stages.deleteOne({
+            _id: stageId,
+        });
 
         if (deletedStageCount === 0) {
             return res.status(404).json({

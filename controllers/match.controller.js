@@ -254,12 +254,12 @@ export async function endMatch(req, res) {
                 message: "Match participants not set",
             });
         }
-        
+
         let winnerId = null;
 
-        if(parsed.score.team1 > parsed.score.team2){
+        if (parsed.score.team1 > parsed.score.team2) {
             winnerId = match.participant1;
-        } else if( parsed.score.team2 > parsed.score.team1){
+        } else if (parsed.score.team2 > parsed.score.team1) {
             winnerId = match.participant2;
         } else {
             winnerId = null;

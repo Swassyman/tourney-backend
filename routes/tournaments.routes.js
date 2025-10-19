@@ -14,4 +14,6 @@ router.patch("/:tournamentId", tournamentController.updateTournament);
 router.get("/:tournamentId/teams", tournamentController.getTournamentTeams);
 router.get("/:tournamentId/stages", tournamentController.getTournamentStages);
 
+router.get("/:tournamentId/winner", tournamentController.declareWinner);
+
 export default router;

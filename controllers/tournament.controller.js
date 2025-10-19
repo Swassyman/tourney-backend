@@ -4,25 +4,32 @@ import {
     clubMembers,
     matches,
     players,
+    stageItems,
     stages,
     teams,
     tournaments,
 } from "../config/db.js";
 
-const CREATE_SCHEMA = z.object({
-    name: z.string().trim().min(3).max(256),
-    clubId: z.string().trim().min(1),
-    startTime: z.string().optional(), // todo: convert to datetime
-    endTime: z.string().optional(),
-    settings: z.object({
-        rankingConfig: z.object({
-            winPoints: z.number().min(0).default(3),
-            drawPoints: z.number().min(0).default(1),
-            lossPoints: z.number().default(0), // set up a min value (can go negative)
-            addScorePoints: z.boolean().default(false),
-        }).optional(),
-    }).optional(),
-}).strict();
+const CREATE_SCHEMA = z
+    .object({
+        name: z.string().trim().min(3).max(256),
+        clubId: z.string().trim().min(1),
+        startTime: z.string().optional(), // todo: convert to datetime
+        endTime: z.string().optional(),
+        settings: z
+            .object({
+                rankingConfig: z
+                    .object({
+                        winPoints: z.number().min(0).default(3),
+                        drawPoints: z.number().min(0).default(1),
+                        lossPoints: z.number().default(0), // set up a min value (can go negative)
+                        addScorePoints: z.boolean().default(false),
+                    })
+                    .optional(),
+            })
+            .optional(),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler} */
 export async function createTournament(req, res) {
@@ -106,19 +113,25 @@ export async function getTournament(req, res) {
     }
 }
 
-const UPDATE_SCHEMA = z.object({
-    name: z.string().trim().min(3).max(256).optional(),
-    startTime: z.iso.datetime().optional(),
-    endTime: z.string().optional(),
-    settings: z.object({
-        rankingConfig: z.object({
-            winPoints: z.number().min(0).optional(),
-            drawPoints: z.number().min(0).optional(),
-            lossPoints: z.number().min(0).optional(),
-            addScorePoints: z.boolean().optional(),
-        }).optional(),
-    }).optional(),
-}).strict();
+const UPDATE_SCHEMA = z
+    .object({
+        name: z.string().trim().min(3).max(256).optional(),
+        startTime: z.iso.datetime().optional(),
+        endTime: z.string().optional(),
+        settings: z
+            .object({
+                rankingConfig: z
+                    .object({
+                        winPoints: z.number().min(0).optional(),
+                        drawPoints: z.number().min(0).optional(),
+                        lossPoints: z.number().min(0).optional(),
+                        addScorePoints: z.boolean().optional(),
+                    })
+                    .optional(),
+            })
+            .optional(),
+    })
+    .strict();
 
 /** @type {import("express").RequestHandler<{ tournamentId: string }>} */
 export async function updateTournament(req, res) {
@@ -264,9 +277,12 @@ export async function getTournamentTeams(req, res) {
             });
         }
 
-        const tournamentTeams = await teams.find({
-            tournamentId: tournamentId,
-        }).sort({ "stats.score": -1, "stats.wins": -1 }).toArray();
+        const tournamentTeams = await teams
+            .find({
+                tournamentId: tournamentId,
+            })
+            .sort({ "stats.score": -1, "stats.wins": -1 })
+            .toArray();
 
         res.status(200).json(tournamentTeams);
     } catch (error) {
@@ -296,9 +312,10 @@ export async function getTournamentMatches(req, res) {
             });
         }
 
-        const tournamentMatches = await matches.find({
-            tournamentId: tournamentId,
-        })
+        const tournamentMatches = await matches
+            .find({
+                tournamentId: tournamentId,
+            })
             .sort({ startTime: 1 })
             .toArray();
 
@@ -330,9 +347,12 @@ export async function getTournamentPlayers(req, res) {
             });
         }
 
-        const tournamentPlayers = await players.find({
-            tournamentId: tournamentId,
-        }).sort({ name: 1 }).toArray();
+        const tournamentPlayers = await players
+            .find({
+                tournamentId: tournamentId,
+            })
+            .sort({ name: 1 })
+            .toArray();
 
         res.status(200).json(tournamentPlayers);
     } catch (error) {
@@ -362,13 +382,109 @@ export async function getTournamentStages(req, res) {
             });
         }
 
-        const tournamentStages = await stages.find({
-            tournamentId: tournamentId,
-        }).sort({ order: 1 }).toArray();
+        const tournamentStages = await stages
+            .find({
+                tournamentId: tournamentId,
+            })
+            .sort({ order: 1 })
+            .toArray();
 
         res.status(200).json(tournamentStages);
     } catch (error) {
         console.error("Error during getting tournament stages:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
+export async function declareWinner(req, res) {
+    try {
+        const tournamentId = new ObjectId(req.params.tournamentId);
+
+        const tournament = await tournaments.findOne({ _id: tournamentId });
+        if (!tournament) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (!membership) {
+            return res
+                .status(403)
+                .json({ message: "You are not a member of this club" });
+        }
+
+        const stage = await stages.findOne({ tournamentId });
+        if (!stage) {
+            return res.status(404).json({ message: "Stage not found" });
+        }
+
+        const stageItem = await stageItems.findOne(
+            { stageId: stage._id },
+            { projection: { inputs: 1, _id: 0 } },
+        );
+
+        if (!stageItem || !stageItem.inputs || stageItem.inputs.length === 0) {
+            return res.status(404).json({
+                message: "No teams found in stage item",
+            });
+        }
+
+        const teamIds = stageItem.inputs.map((input) =>
+            new ObjectId(input.teamId)
+        );
+
+        const teamDocs = await teams
+            .find(
+                { _id: { $in: teamIds } },
+                { projection: { name: 1, teamStats: 1 } },
+            )
+            .toArray();
+
+        if (teamDocs.length === 0) {
+            return res.status(404).json({ message: "No teams found" });
+        }
+
+        const bestTeam = teamDocs.reduce((max, current) => {
+            const maxPoints = max.teamStats.points;
+            const currPoints = current.teamStats.points;
+
+            if (currPoints > maxPoints) {
+                return current;
+            } else if (currPoints === maxPoints) {
+                const maxGD = max.teamStats.goalsFor
+                    - max.teamStats.goalsAgainst;
+                const currGD = current.teamStats.goalsFor
+                    - current.teamStats.goalsAgainst;
+
+                if (currGD > maxGD) {
+                    return current;
+                } else if (currGD === maxGD) {
+                    if (current.teamStats.goalsFor > max.teamStats.goalsFor) {
+                        return current;
+                    }
+                }
+            }
+            return max;
+        });
+
+        await tournaments.updateOne(
+            { _id: tournamentId },
+            { $set: { winnerId: bestTeam._id, endTime: new Date() } },
+        );
+
+        res.status(200).json({
+            winner: {
+                teamId: bestTeam._id,
+                teamName: bestTeam.name,
+                points: bestTeam.teamStats.points,
+            },
+        });
+    } catch (error) {
+        console.error("Error declaring winner:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
