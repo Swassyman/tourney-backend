@@ -6,12 +6,6 @@ const CREATE_SCHEMA = z
     .object({
         name: z.string().min(3).max(256),
         order: z.number().int().optional(),
-        config: z
-            .object({
-                // league
-                teamsCount: z.number().int().min(2).optional(),
-            })
-            .optional(),
     })
     .strict();
 
@@ -44,29 +38,15 @@ export async function createStage(req, res) {
             .sort({ order: -1 })
             .limit(1)
             .toArray();
+
         const nextOrder = existingStages.length > 0
             ? existingStages[0].order + 1
             : 0;
-
-        // validating config
-        const config = parsed.config;
-        if (!config.teamsCount) {
-            return res.status(400).json({
-                message: "Team Count is required for league",
-            });
-        }
 
         const { insertedId: stageId } = await stages.insertOne({
             tournamentId: tournamentId,
             name: parsed.name,
             order: nextOrder,
-            config: {
-                // League default
-                teamsCount: config.teamsCount,
-                rounds: config.teamsCount % 2 == 0
-                    ? config.teamsCount - 1
-                    : config.teamsCount, // n - odd, n-1 - even
-            },
         });
 
         const { insertedId: stageItemId } = await stageItems.insertOne({
@@ -130,12 +110,6 @@ const UPDATE_STAGE_SCHEMA = z
     .object({
         name: z.string().trim().min(1).max(256).optional(),
         order: z.number().int().min(0).optional(),
-        config: z
-            .object({
-                // league
-                teamsCount: z.number().int().min(2).optional(),
-            })
-            .optional(),
     })
     .strict();
 
@@ -174,7 +148,6 @@ export async function updateStage(req, res) {
         const updateDoc = {};
         if (parsed.name) updateDoc.name = parsed.name;
         if (parsed.order !== undefined) updateDoc.order = parsed.order;
-        if (parsed.config) updateDoc.config = parsed.config;
 
         const { modifiedCount } = await stages.updateOne(
             { _id: stageId },

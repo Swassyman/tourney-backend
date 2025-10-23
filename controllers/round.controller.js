@@ -228,3 +228,41 @@ export async function getRoundMatches(req, res) {
         return res.status(500).json({ message: "Internal server error" });
     }
 }
+
+/** @type {import("express").RequestHandler<{ stageId: string }>} */
+export async function clearRounds(req, res) {
+    try {
+        const stageId = new ObjectId(req.params.stageId);
+
+        const stage = await stages.findOne({ _id: stageId });
+        if (stage == null) {
+            return res.status(400).json({ message: "Stage not found" });
+        }
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const stageRounds = await rounds.deleteMany({
+            stageId: stageId,
+        });
+
+        res.status(200).json(stageRounds);
+    } catch (error) {
+        console.error("Error during getting rounds:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}

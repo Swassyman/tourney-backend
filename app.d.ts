@@ -97,16 +97,8 @@ declare global {
         type Stage = WithId<{
             tournamentId: ObjectId;
             name: string;
-            config: StageConfig;
             order: number;
         }>;
-
-        // config for each stage
-        type StageConfig = {
-            // League settings
-            teamsCount?: number;
-            rounds?: number;
-        };
 
         // each stage
         type StageItem = WithId<{

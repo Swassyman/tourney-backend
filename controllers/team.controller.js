@@ -279,9 +279,9 @@ export async function getTeamMatches(req, res) {
         const teamMatches = await matches
             .find({
                 tournamentId: team.tournamentId,
-                $or: [{ participant1: teamId }, { participant2: teamId }],
+                // $or: [{ participant1: teamId }, { participant2: teamId }],
+                participant1: teamId,
             })
-            .sort({ startTime: 1 })
             .toArray();
 
         res.status(200).json(teamMatches);

@@ -9,5 +9,6 @@ router.use(authenticateToken); // todo: wrap in a general protected router
 router.post("/:stageId", roundController.generateRounds);
 router.get("/:stageId", roundController.getRounds);
 router.get("/:roundId/matches", roundController.getRoundMatches);
+router.delete("/:stageId/clear", roundController.clearRounds);
 
 export default router;

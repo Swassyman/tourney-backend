@@ -8,7 +8,10 @@ import {
     tournaments,
 } from "../config/db.js";
 
-// assign teams to table
+const ASSIGN_SCHEMA = z.object({
+    teamIds: z.array(z.string()),
+}).strict();
+
 /** @type {import("express").RequestHandler<{ stageItemId: string }>} */
 export async function assignTeams(req, res) {
     try {
@@ -43,28 +46,20 @@ export async function assignTeams(req, res) {
             });
         }
 
-        const teamsList = await teams.find({
+        const { teamIds } = ASSIGN_SCHEMA.parse(req.body);
+
+        const existingTeams = await teams.find({
+            _id: { $in: teamIds.map((id) => new ObjectId(id)) },
             tournamentId: tournament._id,
         }).toArray();
 
-        const teamIds = teamsList
-            .filter(team => team._id)
-            .map(team => new ObjectId(team._id));
-
-        if (teamIds.length > 0) {
-            const existingTeams = await teams.find({
-                _id: { $in: teamIds },
-                tournamentId: tournament._id,
-            }).toArray();
-
-            if (existingTeams.length !== teamIds.length) {
-                return res.status(400).json({
-                    message: "One or more teams not found in this tournament",
-                });
-            }
+        if (existingTeams.length !== teamIds.length) {
+            return res.status(400).json({
+                message: "One or more teams not found in this tournament",
+            });
         }
 
-        const formattedInputs = teamsList.map(team => ({
+        const formattedInputs = existingTeams.map((team) => ({
             teamId: team._id ? new ObjectId(team._id) : undefined,
             name: team.name,
         }));
