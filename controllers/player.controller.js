@@ -6,7 +6,6 @@ import {
     players,
     teams,
     teamxplayers,
-    tournaments,
 } from "../config/db.js";
 
 const CREATE_PLAYER_SCHEMA = z
@@ -148,6 +147,8 @@ export async function assignPlayerToTeam(req, res) {
             });
         }
 
+        // todo: check if already in team?
+
         await teamxplayers.insertOne({
             teamId: teamId,
             playerId: playerId,
@@ -216,6 +217,45 @@ export async function removePlayerFromTeam(req, res) {
         res.status(200).json({
             message: "Player removed from team successfully",
         });
+    } catch (error) {
+        console.error("Error during removing player from team:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ tournamentId: string }>} */
+export async function getAllAssignedPlayers(req, res) {
+    try {
+        const teamPlayers = await teams.aggregate([
+            {
+                $match: {
+                    tournamentId: new ObjectId(req.params.tournamentId),
+                },
+            },
+            {
+                $lookup: {
+                    from: "teamxplayers",
+                    localField: "_id",
+                    foreignField: "teamId",
+                    as: "players",
+                },
+            },
+            {
+                $addFields: {
+                    teamId: "$_id",
+                    playerIds: {
+                        $map: {
+                            input: "$players",
+                            as: "player",
+                            in: "$$player.playerId",
+                        },
+                    },
+                },
+            },
+            { $project: { teamStats: 0, players: 0, _id: 0, tournamentId: 0 } },
+        ]).toArray();
+
+        res.status(200).json(teamPlayers);
     } catch (error) {
         console.error("Error during removing player from team:", error);
         return res.status(500).json({ message: "Internal server error" });

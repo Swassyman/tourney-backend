@@ -44,14 +44,6 @@ declare global {
             joined_at: Date;
         }>;
 
-        type Team = WithId<
-            {
-                tournamentId: ObjectId;
-                name: string;
-                teamStats: TeamStats;
-            }
-        >;
-
         type TeamStats = {
             matchesPlayed: number;
             points: number;
@@ -61,6 +53,14 @@ declare global {
             goalsFor: number;
             goalsAgainst: number;
         };
+
+        type Team = WithId<
+            {
+                tournamentId: ObjectId;
+                name: string;
+                teamStats: TeamStats;
+            }
+        >;
 
         type Player = WithId<{
             clubId: ObjectId;

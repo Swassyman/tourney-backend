@@ -8,9 +8,11 @@ router.use(authenticateToken); // todo: wrap in a general protected router
 
 router.post("/create", playerController.createPlayer);
 router.get("/:playerId", playerController.getPlayer);
-router.post("/:playerId/assign", playerController.assignPlayerToTeam);
-router.post("/:playerId/remove", playerController.removePlayerFromTeam);
 router.patch("/:playerId/update", playerController.updatePlayer);
 router.delete("/:playerId/delete", playerController.deletePlayer);
+
+router.post("/:playerId/assign", playerController.assignPlayerToTeam);
+router.post("/:playerId/remove", playerController.removePlayerFromTeam);
+router.get("/:tournamentId/assigned", playerController.getAllAssignedPlayers);
 
 export default router;

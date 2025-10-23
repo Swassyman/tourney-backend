@@ -302,3 +302,28 @@ export async function getClubTournaments(req, res) {
         return res.status(500).json({ message: "Internal server error" });
     }
 }
+
+/** @type {import("express").RequestHandler<{ clubId: string }>} */
+export async function getClubPlayers(req, res) {
+    try {
+        const membership = await clubMembers.findOne({
+            clubId: new ObjectId(req.params.clubId),
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const clubPlayers = await players.find({
+            clubId: new ObjectId(req.params.clubId),
+        }).sort({ createdAt: -1 }).toArray();
+
+        res.status(200).json(clubPlayers);
+    } catch (error) {
+        console.error("Error during getting club players:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
