@@ -93,11 +93,14 @@ declare global {
             addScorePoints: boolean;
         };
 
+        type StageType = "league" | "group" | "knockout";
+
         // stages of a tournament
         type Stage = WithId<{
             tournamentId: ObjectId;
             name: string;
             order: number;
+            type: StageType;
         }>;
 
         // each stage
@@ -109,7 +112,7 @@ declare global {
 
         // table in league (group in groups, division [quarter, semi] in knockout)
         type StageInput = {
-            teamId?: ObjectId;
+            teamId: ObjectId;
         };
 
         type Round = WithId<{

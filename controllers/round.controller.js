@@ -25,7 +25,7 @@ function generateLeagueRounds(teamIds, stageId) {
 
     for (let round = 0; round < numRounds; round++) {
         rounds.push({
-            stageId: stageId,
+            stageId: stageId, // todo: change to stageItemId for future scope
             number: round + 1,
         });
 
@@ -96,7 +96,7 @@ export async function generateRounds(req, res) {
             stageId: stageId,
         });
         if (stageItem == null) {
-            return res.status(500).json({
+            return res.status(400).json({
                 message: "Table was not generated on stage creation",
             });
         }

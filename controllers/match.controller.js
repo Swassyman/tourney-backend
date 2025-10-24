@@ -115,6 +115,9 @@ export async function updateMatch(req, res) {
             { _id: matchId },
             {
                 $set: {
+                    ...(match.startTime == null
+                        ? { startTime: new Date() }
+                        : {}),
                     score: {
                         team1Score: parsed.score.team1,
                         team2Score: parsed.score.team2,
@@ -308,6 +311,9 @@ export async function endMatch(req, res) {
             {
                 $set: {
                     winnerId: winnerId,
+                    ...(match.startTime == null
+                        ? { startTime: new Date() }
+                        : {}),
                     endTime: new Date(),
                     score: {
                         team1Score: parsed.score.team1,

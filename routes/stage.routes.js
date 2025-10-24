@@ -11,4 +11,8 @@ router.get("/:stageId", stageController.getStage);
 router.patch("/update/:stageId", stageController.updateStage);
 router.delete("/delete/:stageId", stageController.deleteStage);
 
+router.get("/:stageId/items", stageController.getStageItems);
+router.get("/:stageId/rounds", stageController.getStageRounds); // todo: remove for future
+router.get("/:stageId/available-teams", stageController.getAvailableTeams);
+
 export default router;

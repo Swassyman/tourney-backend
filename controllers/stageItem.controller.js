@@ -64,14 +64,10 @@ export async function assignTeams(req, res) {
             name: team.name,
         }));
 
-        const { modifiedCount } = await stageItems.updateOne(
+        await stageItems.updateOne(
             { _id: stageItemId },
             { $set: { inputs: formattedInputs } },
         );
-
-        if (modifiedCount === 0) {
-            return res.status(400).json({ message: "Failed to assign teams" });
-        }
 
         const updatedStageItem = await stageItems.findOne({ _id: stageItemId });
         res.status(200).json(updatedStageItem);
@@ -244,6 +240,61 @@ export async function clearTeamAssignments(req, res) {
         });
     } catch (error) {
         console.error("Error during clearing team assignments:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ stageItemId: string }>} */
+export async function getStageItemTeams(req, res) {
+    try {
+        const stageItemId = new ObjectId(req.params.stageItemId);
+
+        const [stageItem] = await stageItems.aggregate([
+            { $match: { _id: stageItemId } },
+            {
+                $lookup: {
+                    from: "teams",
+                    localField: "inputs.teamId",
+                    foreignField: "_id",
+                    as: "teams",
+                    // pipeline: [
+                    //     { $project: { tournamentId: 0, teamStats: 0 } },
+                    // ],
+                },
+            },
+            { $addFields: { inputs: "$teams" } },
+            // { $project: { inputs: 0 } },
+        ]).toArray();
+        if (stageItem == null) {
+            return res.status(404).json({ message: "Stage item not found" });
+        }
+
+        const stage = await stages.findOne({ _id: stageItem.stageId });
+        if (stage == null) {
+            return res.status(404).json({ message: "Stage not found" });
+        }
+
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        res.status(200).json(stageItem.teams);
+    } catch (error) {
+        console.error("Error during getting stage item:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }

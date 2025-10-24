@@ -1,11 +1,18 @@
 import { ObjectId } from "mongodb";
 import z, { ZodError } from "zod";
-import { clubMembers, stageItems, stages, tournaments } from "../config/db.js";
+import {
+    clubMembers,
+    rounds,
+    stageItems,
+    stages,
+    teams,
+    tournaments,
+} from "../config/db.js";
 
 const CREATE_SCHEMA = z
     .object({
         name: z.string().min(3).max(256),
-        order: z.number().int().optional(),
+        type: z.enum(["league", "group", "knockout"]),
     })
     .strict();
 
@@ -41,12 +48,13 @@ export async function createStage(req, res) {
 
         const nextOrder = existingStages.length > 0
             ? existingStages[0].order + 1
-            : 0;
+            : 1;
 
         const { insertedId: stageId } = await stages.insertOne({
             tournamentId: tournamentId,
             name: parsed.name,
             order: nextOrder,
+            type: parsed.type,
         });
 
         const { insertedId: stageItemId } = await stageItems.insertOne({
@@ -55,7 +63,11 @@ export async function createStage(req, res) {
             inputs: [], // will get filled on team assignment
         });
 
-        res.status(201).json({ stageId: stageId, stageItemId: stageItemId });
+        res.status(201).json({
+            stageId: stageId,
+            order: nextOrder,
+            stageItemId: stageItemId,
+        });
     } catch (error) {
         if (error instanceof ZodError) {
             console.log(error.issues);
@@ -99,7 +111,9 @@ export async function getStage(req, res) {
             });
         }
 
-        res.status(200).json(stage);
+        const roundsCount = await rounds.countDocuments({ stageId: stageId });
+
+        res.status(200).json({ ...stage, roundsCount });
     } catch (error) {
         console.error("Error during getting stage:", error);
         return res.status(500).json({ message: "Internal server error" });
@@ -216,6 +230,210 @@ export async function deleteStage(req, res) {
         res.status(200).json({ message: "Deleted stage successfully" });
     } catch (error) {
         console.error("Error during deleting stage:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ stageId: string }>} */
+export async function getStageItems(req, res) {
+    try {
+        const stageId = new ObjectId(req.params.stageId);
+
+        const stage = await stages.findOne({ _id: stageId });
+        if (stage == null) {
+            return res.status(404).json({ message: "Stage not found" });
+        }
+
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const items = await stageItems.aggregate([
+            { $match: { stageId: new ObjectId(stageId) } },
+            {
+                $lookup: {
+                    from: "teams",
+                    localField: "inputs.teamId",
+                    foreignField: "_id",
+                    as: "populatedTeamInputs",
+                    pipeline: [
+                        {
+                            $addFields: {
+                                "teamStats.goalDifference": {
+                                    $subtract: [
+                                        "$teamStats.goalsFor",
+                                        "$teamStats.goalsAgainst",
+                                    ],
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+            {
+                $addFields: {
+                    inputs: {
+                        $sortArray: {
+                            input: "$populatedTeamInputs",
+                            sortBy: {
+                                "teamStats.points": -1,
+                                "teamStats.goalDifference": -1,
+                                "teamStats.losses": 1,
+                            },
+                        },
+                    },
+                    roundsCount: await rounds.countDocuments({
+                        stageId: stageId,
+                    }), // todo: remove for future
+                },
+            },
+            {
+                $project: { populatedTeamInputs: 0 },
+            },
+        ]).toArray();
+
+        res.status(200).json(items);
+    } catch (error) {
+        console.error("Error during getting stage:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ stageId: string }>} */
+export async function getStageRounds(req, res) {
+    try {
+        const stageId = new ObjectId(req.params.stageId);
+
+        const stage = await stages.findOne({ _id: stageId });
+        if (stage == null) {
+            return res.status(404).json({ message: "Stage not found" });
+        }
+
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const stageRounds = await rounds.aggregate([
+            { $match: { stageId: stageId } },
+            {
+                $lookup: {
+                    from: "matches",
+                    localField: "_id",
+                    foreignField: "roundId",
+                    as: "matches",
+                    // pipeline: [
+                    //     {
+                    //         $lookup: {
+                    //             from: "teams",
+                    //             localField: "participant1",
+                    //             foreignField: "_id",
+                    //             as: "team1",
+                    //         },
+                    //     },
+                    //     {
+                    //         $lookup: {
+                    //             from: "teams",
+                    //             localField: "participant2",
+                    //             foreignField: "_id",
+                    //             as: "team2",
+                    //         },
+                    //     },
+                    // ],
+                },
+            },
+        ]).toArray();
+
+        res.status(200).json(stageRounds);
+    } catch (error) {
+        console.error("Error during getting stage:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler<{ stageId: string }>} */
+export async function getAvailableTeams(req, res) {
+    try {
+        const stageId = new ObjectId(req.params.stageId);
+
+        const stage = await stages.findOne({ _id: stageId });
+        if (stage == null) {
+            return res.status(404).json({ message: "Stage not found" });
+        }
+
+        const tournament = await tournaments.findOne({
+            _id: stage.tournamentId,
+        });
+        if (tournament == null) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        const membership = await clubMembers.findOne({
+            clubId: tournament.clubId,
+            userId: new ObjectId(req.user.id),
+        });
+
+        if (membership == null) {
+            return res.status(403).json({
+                message: "You are not a member of this club",
+            });
+        }
+
+        const assignedTeams = await stageItems.aggregate([
+            { $match: { stageId: stageId } },
+            {
+                $addFields: {
+                    teams: {
+                        $map: {
+                            input: "$inputs",
+                            as: "input",
+                            in: "$$input.teamId",
+                        },
+                    },
+                },
+            },
+            { $replaceRoot: { newRoot: { teams: "$teams" } } },
+        ]).toArray();
+
+        const assignedTeamIds = assignedTeams.map((
+            /**@type {{teams: ObjectId[]}} */ { teams },
+        ) => teams).flat();
+
+        const availableTeams = await teams.find({
+            tournamentId: stage.tournamentId,
+            _id: { $nin: assignedTeamIds },
+        }).toArray();
+
+        res.status(200).json(availableTeams);
+    } catch (error) {
+        console.error("Error during getting stage:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }

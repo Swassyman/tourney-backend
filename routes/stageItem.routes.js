@@ -11,4 +11,6 @@ router.get("/:stageItemId", stageItemController.getStageItem);
 router.patch("/:stageItemId/update", stageItemController.updateStageItem);
 router.post("/:stageItemId/clear", stageItemController.clearTeamAssignments);
 
+router.get("/:stageItemId/teams", stageItemController.getStageItemTeams);
+
 export default router;
