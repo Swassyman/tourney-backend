@@ -15,5 +15,6 @@ router.get("/me", userController.getMe);
 router.post("/logout", userController.logout);
 
 router.get("/clubs", userController.getMyClubMemberships);
+router.get("/tournaments", userController.getMyTournaments);
 
 export default router;

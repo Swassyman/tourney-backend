@@ -3,7 +3,7 @@ import { jwtVerify } from "jose";
 import { ObjectId } from "mongodb";
 import { fromError } from "zod-validation-error";
 import { z, ZodError } from "zod/v4";
-import { clubMembers, users } from "../config/db.js";
+import { clubMembers, clubs, tournaments, users } from "../config/db.js";
 import {
     generateAccessToken,
     generateRefreshToken,
@@ -256,6 +256,22 @@ export async function getMyClubMemberships(req, res) {
                 },
             ),
         );
+    } catch (error) {
+        console.error("Error during getting clubs:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** @type {import("express").RequestHandler} */
+export async function getMyTournaments(req, res) {
+    try {
+        const clubMemberships = await clubMembers.find({
+            userId: new ObjectId(req.user.id),
+        }).toArray();
+        const myTournaments = await tournaments.find(
+            { clubId: { $in: clubMemberships.map((m) => m.clubId) } },
+        ).toArray();
+        res.status(200).json(myTournaments);
     } catch (error) {
         console.error("Error during getting clubs:", error);
         return res.status(500).json({ message: "Internal server error" });
