@@ -22,10 +22,10 @@ app.use((req, res, next) => {
     next();
 });
 
-const FRONTEND_ORIGIN = "http://localhost:5173";
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*";
 // the cors plugin felt messier to configure, so here is manual:
 app.use((req, res, next) => {
-    if (req.headers.origin === FRONTEND_ORIGIN) {
+    if (FRONTEND_ORIGIN === "*" || req.headers.origin === FRONTEND_ORIGIN) {
         res.setHeader("Access-Control-Allow-Origin", FRONTEND_ORIGIN);
         res.setHeader("Access-Control-Allow-Credentials", "true");
         res.setHeader(
